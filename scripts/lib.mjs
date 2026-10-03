@@ -34,8 +34,12 @@ export const ACCENT_MAX_SHARE = 1 / 3;
 export const CENTER_BLEND = 0.5;
 /** Longest edge, in px, an SVG is rasterized to before measuring. */
 export const DEFAULT_RASTER_EDGE = 1024;
-/** Alpha pixels at or below this are treated as margin when trimming. */
+/** Alpha pixels at or below this are treated as margin when cropping to the ink. */
 const TRIM_THRESHOLD = 10;
+/** Ink whose strongest pixel is below this contrast is barely visible on the background. */
+const LOW_CONTRAST = 0.15;
+/** Share of an opaque border that must match one color for that color to be the image's own background. */
+const BORDER_UNIFORM = 0.6;
 /**
  * A pixel within this contrast of the background is background, not ink, so
  * an opaque export measures correctly against its real background: the plate
@@ -83,21 +87,128 @@ export async function toRaw(png) {
 
 /**
  * Load an image file as a PNG buffer plus raw pixels. An SVG is rasterized so
- * its longest edge is `maxEdge`. `trim` removes the transparent (or flat
- * background) margin so the box is the ink box.
+ * its longest edge is `maxEdge`. `trim` crops to the visible ink against `bg`,
+ * the background the element renders on: an opaque tile that contrasts with the
+ * background is kept whole, and padding that matches the background is removed.
+ * `full` is the size before the crop, so a caller can scale the file as placed.
  */
-export async function loadRaster(file, { maxEdge = DEFAULT_RASTER_EDGE, trim = false } = {}) {
+export async function loadRaster(file, { maxEdge = DEFAULT_RASTER_EDGE, trim = false, bg = "255" } = {}) {
     const meta = await sharp(file, { failOn: "none" }).metadata();
-    let pipeline;
-    if (meta.format === "svg") {
-        const edge = Math.max(meta.width || 1, meta.height || 1);
-        pipeline = sharp(file, { failOn: "none", density: (72 * maxEdge) / edge });
-    } else {
-        pipeline = sharp(file, { failOn: "none" });
-    }
-    if (trim) pipeline = pipeline.trim({ threshold: TRIM_THRESHOLD });
+    const pipeline = meta.format === "svg"
+        ? sharp(file, { failOn: "none", density: (72 * maxEdge) / Math.max(meta.width || 1, meta.height || 1) })
+        : sharp(file, { failOn: "none" });
     const png = await pipeline.ensureAlpha().png().toBuffer();
-    return { png, raw: await toRaw(png), format: meta.format };
+    const raw = await toRaw(png);
+    const full = { width: raw.width, height: raw.height, png, raw };
+    if (!trim) return { png, raw, format: meta.format, full };
+    return { ...(await cropToInk(png, raw, parseColor(bg).lum)), format: meta.format, full };
+}
+
+/**
+ * Crop to the bounds of every visible pixel that differs from the background.
+ * Unlike a trim against the corner pixel, this keeps an opaque tile that
+ * contrasts with the background, and it never crops into the artwork.
+ */
+export async function cropToInk(png, raw, bgLum, backgroundContrast = BACKGROUND_CONTRAST) {
+    const { data, width, height } = raw;
+    let left = width, top = height, right = -1, bottom = -1;
+    for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+            const i = (y * width + x) * 4;
+            if (data[i + 3] <= TRIM_THRESHOLD) continue;
+            if (Math.abs(luminance(data[i], data[i + 1], data[i + 2]) - bgLum) / 255 <= backgroundContrast) continue;
+            if (x < left) left = x;
+            if (x > right) right = x;
+            if (y < top) top = y;
+            if (y > bottom) bottom = y;
+        }
+    }
+    if (right < 0) return { png, raw, crop: null };
+    const crop = { left, top, width: right - left + 1, height: bottom - top + 1 };
+    const out = await sharp(png).extract(crop).png().toBuffer();
+    return { png: out, raw: await toRaw(out), crop };
+}
+
+/**
+ * Read an image's own background from its one-pixel border. A border that is
+ * mostly transparent means the element has no background of its own. An opaque
+ * border reports its dominant color and how much of the border matches it.
+ */
+export function detectBackground(raw) {
+    const { data, width: w, height: h } = raw;
+    const ring = [];
+    for (let x = 0; x < w; x++) ring.push(x, (h - 1) * w + x);
+    for (let y = 1; y < h - 1; y++) ring.push(y * w, y * w + w - 1);
+    const buckets = new Map();
+    let transparent = 0;
+    for (const p of ring) {
+        const i = p * 4;
+        if (data[i + 3] < 128) { transparent++; continue; }
+        const key = ((data[i] >> 3) << 10) | ((data[i + 1] >> 3) << 5) | (data[i + 2] >> 3);
+        const b = buckets.get(key) ?? { n: 0, r: 0, g: 0, b: 0 };
+        b.n++; b.r += data[i]; b.g += data[i + 1]; b.b += data[i + 2];
+        buckets.set(key, b);
+    }
+    if (transparent / ring.length >= 0.5) return { opaque: false, share: transparent / ring.length };
+    let best = null;
+    for (const b of buckets.values()) if (!best || b.n > best.n) best = b;
+    const color = { r: best.r / best.n, g: best.g / best.n, b: best.b / best.n };
+    color.lum = luminance(color.r, color.g, color.b);
+    let match = 0;
+    for (const p of ring) {
+        const i = p * 4;
+        if (data[i + 3] >= 128 && Math.abs(luminance(data[i], data[i + 1], data[i + 2]) - color.lum) / 255 <= BACKGROUND_CONTRAST) match++;
+    }
+    return { opaque: true, color, hex: toHex(color), share: match / ring.length };
+}
+
+/**
+ * Resolve the `bg` option. `auto` uses the image's own opaque background; a
+ * transparent image has none, so auto falls back to white and says so.
+ */
+export function resolveBackground(bg, raw) {
+    if (String(bg ?? "").trim().toLowerCase() !== "auto") return { color: parseColor(bg), notes: [] };
+    const found = detectBackground(raw);
+    if (found.opaque && found.share >= BORDER_UNIFORM) return { color: parseColor(found.hex), notes: [] };
+    return {
+        color: parseColor("255"),
+        notes: [found.opaque
+            ? "--bg auto: the border has no single color, so white was assumed. Pass the background with --bg."
+            : "--bg auto: the image is transparent and has no background of its own, so white was assumed. Pass the background it renders on with --bg."],
+    };
+}
+
+/**
+ * Checks that catch a confident wrong answer before it reaches a layout: an
+ * element that is invisible or nearly invisible on the given background, and an
+ * image that carries its own background. Each message says what to do next.
+ */
+export function inputWarnings(raw, bg) {
+    const color = typeof bg === "object" ? bg : parseColor(bg);
+    const { data } = raw;
+    let visible = 0, ink = 0, maxContrast = 0;
+    for (let i = 0; i < data.length; i += 4) {
+        if (data[i + 3] < 128) continue;
+        visible++;
+        const c = Math.abs(luminance(data[i], data[i + 1], data[i + 2]) - color.lum) / 255;
+        if (c > BACKGROUND_CONTRAST) ink++;
+        if (c > maxContrast) maxContrast = c;
+    }
+    const warnings = [];
+    const bgText = `background ${toHex(color)} (luminance ${Math.round(color.lum)})`;
+    if (visible === 0) warnings.push("The image has no visible pixels.");
+    else if (ink === 0) warnings.push(`No ink differs from the ${bgText}. The element may be the same color as the background, for example a white or currentColor icon. Pass the real background with --bg.`);
+    else if (maxContrast < LOW_CONTRAST) warnings.push(`The element barely shows on the ${bgText}: its strongest contrast is ${maxContrast.toFixed(2)}. Check --bg.`);
+    const own = detectBackground(raw);
+    if (own.opaque) {
+        const differs = Math.abs(own.color.lum - color.lum) / 255 > BACKGROUND_CONTRAST;
+        if (own.share >= BORDER_UNIFORM && differs) {
+            warnings.push(`The image has its own opaque background (${own.hex}), unlike the ${bgText}. It renders as a tile or badge. To check the artwork inside it, use --bg auto. On a different plate, a transparent source works better.`);
+        } else if (own.share < BORDER_UNIFORM && differs) {
+            warnings.push("The image is opaque and its border has no single color, so it may be a photo or full-bleed artwork. Use frame for a photo, or pass the backdrop with --bg.");
+        }
+    }
+    return warnings;
 }
 
 /** Rasterize an SVG string at `scale` times its intrinsic size. */
@@ -212,11 +323,96 @@ export function measure(raw, bgLum, { blend = CENTER_BLEND, forceDiscount = fals
     };
 }
 
-/** Measure a file against a background. */
+/**
+ * Measure a file against a background (`bg` may be `auto`). The result carries
+ * `warnings` for inputs that would otherwise give a quiet wrong answer, and
+ * `full`, the file's size before any crop, so a caller can size the file as placed.
+ */
 export async function measureFile(file, { bg = "255", trim = false, maxEdge, blend, tolerance } = {}) {
-    const color = parseColor(bg);
-    const { raw, png } = await loadRaster(file, { trim, maxEdge });
-    return { file, color, png, raw, ...measure(raw, color.lum, { blend, backgroundContrast: tolerance }) };
+    const loaded = await loadRaster(file, { maxEdge });
+    const { color, notes } = resolveBackground(bg, loaded.raw);
+    const { png, raw } = trim ? await cropToInk(loaded.png, loaded.raw, color.lum, tolerance) : loaded;
+    const m = measure(raw, color.lum, { blend, backgroundContrast: tolerance });
+    return { file, color, png, raw, full: { width: loaded.raw.width, height: loaded.raw.height }, ...m, warnings: [...notes, ...inputWarnings(loaded.raw, color)] };
+}
+
+/** Distance from the visual center to the box center, as px and as a percentage of the shorter side. */
+export function offCenter(m) {
+    const px = Math.hypot(m.visual.x - m.box.x, m.visual.y - m.box.y);
+    return { px, pct: (px / Math.min(m.width, m.height)) * 100 };
+}
+
+/** The default gates: 1% off center for placement, 3% size spread for a set. */
+export const GATES = { offCenterPct: 1, sizeSpreadPct: 3 };
+
+/** (largest − smallest) ÷ smallest, as a percentage. */
+export const sizeSpread = (sizes) => ((Math.max(...sizes) - Math.min(...sizes)) / Math.min(...sizes)) * 100;
+
+/**
+ * Render an element the way CSS places it: the file's own box centered in a
+ * container, then moved by an offset given as a percentage of that box, which is
+ * what `transform: translate(x%, y%)` does. `offset: "auto"` finds the optical
+ * offset by measuring the rendered result and correcting the residual until it
+ * stops moving; an explicit `{ x, y }` checks an offset you already use.
+ *
+ * Rendering happens at `scale` device pixels per CSS pixel, so the check is not
+ * limited by whole-pixel rounding at 1x. The plate fills the whole square for the
+ * measurement; a round container is masked only in the returned picture, because
+ * its inside is the same color and the circle is symmetric.
+ */
+export async function renderPlacement(file, {
+    container = 96, element, plate = "#ffffff", shape = "rect", offset = "auto", scale = 4, passes = 6, blend,
+} = {}) {
+    const color = parseColor(plate);
+    const [cw, ch] = typeof container === "number" ? [container, container] : container;
+    const W = Math.round(cw * scale), H = Math.round(ch * scale);
+    const meta = await sharp(file, { failOn: "none" }).metadata();
+    const aspect = (meta.width || 1) / (meta.height || 1);
+    const [ew, eh] = typeof element === "number"
+        ? (aspect >= 1 ? [element, element / aspect] : [element * aspect, element])
+        : element ?? [meta.width, meta.height];
+    const pw = Math.max(1, Math.round(ew * scale)), ph = Math.max(1, Math.round(eh * scale));
+    const source = meta.format === "svg"
+        ? sharp(file, { failOn: "none", density: (72 * Math.max(pw, ph)) / Math.max(meta.width || 1, meta.height || 1) })
+        : sharp(file, { failOn: "none" });
+    const art = await source.resize(pw, ph, { fit: "fill", kernel: "lanczos3" }).ensureAlpha().png().toBuffer();
+    const warnings = inputWarnings(await toRaw(art), color);
+    const enlarged = ew / (meta.width || ew);
+    if (meta.format !== "svg" && enlarged > 1.05) warnings.push(`The raster source is enlarged ${enlarged.toFixed(1)}x at 1x (from ${meta.width}px), so its edges blur and the offset is less exact. Use an SVG or a larger PNG.`);
+    const bake = async (dx, dy) => sharp({ create: { width: W, height: H, channels: 4, background: toHex(color) } })
+        .composite([{ input: art, left: Math.round((W - pw) / 2 + dx), top: Math.round((H - ph) / 2 + dy) }])
+        .flatten({ background: toHex(color) }).png().toBuffer();
+    const score = async (png) => {
+        const m = measure(await toRaw(png), color.lum, { blend });
+        const px = Math.hypot(m.visual.x - m.box.x, m.visual.y - m.box.y);
+        return { m, pct: (px / Math.min(W, H)) * 100, px: px / scale };
+    };
+
+    const before = await bake(0, 0);
+    let dx, dy;
+    if (offset === "auto") {
+        const m = measure(await toRaw(art), color.lum, { blend });
+        dx = m.offset.x; dy = m.offset.y;
+        for (let i = 0; i < passes; i++) {
+            const r = (await score(await bake(dx, dy))).m;
+            const nx = dx - (r.visual.x - r.box.x), ny = dy - (r.visual.y - r.box.y);
+            if (Math.abs(nx - dx) < 0.25 && Math.abs(ny - dy) < 0.25) { dx = nx; dy = ny; break; }
+            dx = nx; dy = ny;
+        }
+    } else {
+        dx = (offset.x / 100) * pw; dy = (offset.y / 100) * ph;
+    }
+    const after = await bake(dx, dy);
+    const mask = shape === "circle"
+        ? Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}"><ellipse cx="${W / 2}" cy="${H / 2}" rx="${W / 2}" ry="${H / 2}" fill="#fff"/></svg>`)
+        : null;
+    const shown = async (png) => (mask ? sharp(png).composite([{ input: mask, blend: "dest-in" }]).png().toBuffer() : png);
+    return {
+        before: { png: await shown(before), ...(await score(before)) },
+        after: { png: await shown(after), ...(await score(after)) },
+        offset: { x: (dx / pw) * 100, y: (dy / ph) * 100, px: { x: dx / scale, y: dy / scale } },
+        element: { width: ew, height: eh }, container: { width: cw, height: ch }, scale, plate: color, warnings,
+    };
 }
 
 /**
@@ -337,7 +533,8 @@ const TRANSPARENT = { r: 0, g: 0, b: 0, alpha: 0 };
  */
 export async function renderTile(file, { size = 256, art = 0.76, plate = "#ffffff", centering = "visual", blend, passes = 4 } = {}) {
     const color = parseColor(plate);
-    const { png } = await loadRaster(file, { trim: true });
+    const { png, full } = await loadRaster(file, { trim: true, bg: plate });
+    const warnings = inputWarnings(full.raw, color);
     const artBox = Math.round(size * art);
     const artwork = await sharp(png).resize(artBox, artBox, { fit: "inside", background: TRANSPARENT }).png().toBuffer();
     const raw = await toRaw(artwork);
@@ -373,7 +570,7 @@ export async function renderTile(file, { size = 256, art = 0.76, plate = "#fffff
         }
     }
     const result = measure(await toRaw(tile), color.lum, { blend, forceDiscount: centering === "forced" });
-    return { png: tile, artwork: m, placed: { left, top }, result, plate: color };
+    return { png: tile, artwork: m, placed: { left, top }, result, plate: color, warnings };
 }
 
 /**
@@ -389,16 +586,24 @@ export async function renderTile(file, { size = 256, art = 0.76, plate = "#fffff
  * which is how two strips meant to be compared render at the SAME on-screen scale: the
  * page shows every figure at one width, so a wider canvas would silently shrink its
  * contents relative to a narrower one.
+ *
+ * `scale` renders at that many device pixels per CSS pixel: a 1px rounding step is
+ * about 4% of a 24px logo, so a size check at 1x cannot resolve the 3% gate. Every
+ * returned size is in CSS pixels. `verify` holds the perceived size of each logo as
+ * measured in the rendered strip, and their spread, which is the size gate.
  */
 export async function renderStrip(files, {
     height = 40, gap = 48, padding = 32, paddingY = padding, rowGap = paddingY * 2, bg = "#ffffff", strength = 0.5, maxWidth = Infinity,
     sizing = "visual", centering = "visual", target = "fit", metric = "contrast", grow = false,
-    columns = Infinity, canvasWidth,
+    columns = Infinity, canvasWidth, scale = 1,
 } = {}) {
     const color = parseColor(bg);
+    const css = { height, gap, padding, paddingY, rowGap };
+    [height, gap, padding, paddingY, rowGap, maxWidth] = [height, gap, padding, paddingY, rowGap, maxWidth].map((v) => v * scale);
+    if (canvasWidth) canvasWidth *= scale;
     const loaded = await Promise.all(files.map(async (file) => {
-        const { png, raw } = await loadRaster(file, { trim: true });
-        return { file, png, ...measure(raw, color.lum) };
+        const { png, raw, full, format } = await loadRaster(file, { trim: true, bg });
+        return { file, png, format, full: { width: full.width, height: full.height }, ...measure(raw, color.lum), warnings: inputWarnings(full.raw, color) };
     }));
     const rows = equalize(loaded, { height, maxWidth, strength: sizing === "visual" ? strength : 0, target, metric, grow });
     // Vertical padding is separate: raising it gives the plate more room without widening
@@ -407,13 +612,38 @@ export async function renderStrip(files, {
     // padding between two rows and the pair then reads as two plates rather than one group.
     const perRow = Math.max(1, Math.min(columns, rows.length));
 
-    // Scale every logo first, so a row's width is known before it is placed.
+    // Scale every logo first, so a row's width is known before it is placed. One factor
+    // for both axes: the cropped raster can be a pixel larger than its ink box, and
+    // fitting it into the ink box's size would squash it.
     const scaled = [];
     for (const r of rows) {
-        const w = Math.max(1, Math.round(r.rendered.width));
-        const h = Math.max(1, Math.round(r.rendered.height));
-        const png = await sharp(r.png).resize(w, h, { fit: "fill" }).png().toBuffer();
+        const w = Math.max(1, Math.round(r.width * r.scale));
+        const h = Math.max(1, Math.round(r.height * r.scale));
+        const png = await sharp(r.png).resize(w, h, { fit: "fill", kernel: "lanczos3" }).png().toBuffer();
         scaled.push({ r, png, w, h, m: measure(await toRaw(png), color.lum) });
+    }
+    // Correct the size residual the way placement corrects its position. Resampling a
+    // small source moves its ink box by a pixel, which is several percent of a 24px logo,
+    // so measure each resized logo and rescale it toward the anchor's measured perceived
+    // size until the sizes stop moving. The anchor is the element the target names: the
+    // smallest for `fit`, the named file or the median otherwise.
+    if (sizing === "visual" && scaled.length > 1) {
+        const anchors = scaled.filter((s) => Math.abs(s.r.correction - 1) < 1e-3 && (target === "fit" || !s.r.clamped));
+        if (anchors.length) {
+            const goal = Math.min(...anchors.map((s) => s.m.perceivedSize));
+            for (let pass = 0; pass < 3; pass++) {
+                let moved = false;
+                for (const s of scaled) {
+                    const k = goal / s.m.perceivedSize;
+                    const w = Math.max(1, Math.round(s.w * k)), h = Math.max(1, Math.round(s.h * k));
+                    if (Math.abs(k - 1) < 0.004 || (w === s.w && h === s.h) || (!grow && h > height)) continue;
+                    s.png = await sharp(s.r.png).resize(w, h, { fit: "fill", kernel: "lanczos3" }).png().toBuffer();
+                    s.w = w; s.h = h; s.m = measure(await toRaw(s.png), color.lum); moved = true;
+                }
+                if (!moved) break;
+            }
+            for (const s of scaled) s.r.scale = s.w / s.r.width;
+        }
     }
     const groups = [];
     for (let i = 0; i < scaled.length; i += perRow) groups.push(scaled.slice(i, i + perRow));
@@ -446,7 +676,28 @@ export async function renderStrip(files, {
         .flatten({ background: toHex(color) })
         .png()
         .toBuffer();
-    return { png, rows, width, height: totalHeight, rowHeight: height + rowGap, baselines, bg: color };
+    // Measure each logo as rendered, before the strip is flattened. Flattening turns the
+    // faint anti-aliased edge into opaque light pixels that pass the background threshold,
+    // so a crop of the flat strip counts an edge the ink box otherwise ignores, and that
+    // inflates a small logo by a pixel.
+    const perceived = scaled.map((s) => s.m.perceivedSize / scale);
+    for (const s of scaled) {
+        const enlarged = s.w / s.r.full.width;
+        if (s.r.format !== "svg" && enlarged > 1.05) {
+            s.r.warnings.push(`The raster source is enlarged ${enlarged.toFixed(1)}x (from ${s.r.full.width}px), so its edges blur and its size is less exact. Use an SVG or a larger PNG.`);
+        }
+    }
+    for (const r of rows) {
+        // CSS sizes: the ink as rendered, and the whole file as placed, padding included.
+        r.css = {
+            ink: { width: r.placed.width / scale, height: r.placed.height / scale },
+            file: { width: (r.full.width * r.scale) / scale, height: (r.full.height * r.scale) / scale },
+        };
+    }
+    return {
+        png, rows, width, height: totalHeight, rowHeight: height + rowGap, baselines, bg: color, scale, css,
+        verify: { perceived, spread: sizeSpread(perceived) },
+    };
 }
 
 const f1 = (n) => n.toFixed(1);
@@ -467,5 +718,9 @@ export function formatMeasure(m, label = "") {
     lines.push(`visual size      ${f1(m.sizes.contrast)}px (sqrt of contrast-weighted ink area)`);
     lines.push(`perceived size   ${f1(m.perceivedSize)}px (geometric mean of visual size and ink height; equal across an equalized set)`);
     lines.push(`offset to apply  x ${m.offset.x >= 0 ? "+" : ""}${f1(m.offset.x)}px (${pct(m.offsetPct.x)}), y ${m.offset.y >= 0 ? "+" : ""}${f1(m.offset.y)}px (${pct(m.offsetPct.y)})  (positive y moves the element down)`);
+    lines.push(`css              transform: translate(${m.offsetPct.x.toFixed(2)}%, ${m.offsetPct.y.toFixed(2)}%)  (percent of this image's own box, as placed)`);
+    const off = offCenter(m);
+    if (m.alphaArea === 0) lines.push("off center       not measurable: no ink against this background");
+    else lines.push(`off center       ${off.pct.toFixed(2)}% of the shorter side (${f1(off.px)}px)  ${off.pct <= GATES.offCenterPct ? "PASS" : "FAIL"} at ${GATES.offCenterPct}% when this image is the rendered container`);
     return lines.join("\n");
 }
