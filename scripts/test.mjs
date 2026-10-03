@@ -144,3 +144,53 @@ test("the CLI reports a missing file and a bad option without a stack trace", ()
     assert.equal(bad.status, 2);
     assert.doesNotMatch(bad.stderr, /at .*node:internal/);
 });
+
+/** A small padded raster logo, the kind that ships in a logo wall. */
+async function paddedLogo(name, body, size = 48) {
+    const p = join(TMP, name);
+    await sharp(Buffer.from(svg(body, size, size))).png().toFile(p);
+    return p;
+}
+
+test("strip reports the size spread of the files as they ship", async () => {
+    const logos = [
+        await paddedLogo("wide.png", `<rect x="4" y="18" width="40" height="12" fill="#2b5cff"/>`),
+        await paddedLogo("tall.png", `<rect x="18" y="6" width="12" height="36" fill="#111"/>`),
+        await paddedLogo("dot.png", `<circle cx="24" cy="24" r="14" fill="#e33"/>`),
+    ];
+    const s = await renderStrip(logos, { height: 32, scale: 2 });
+    // Resize each whole file to the height the strip prints, as a page would, and measure the set.
+    const sizes = [];
+    for (const r of s.rows) {
+        const png = await sharp(r.file).resize(Math.round(r.css.file.width * 2), Math.round(r.css.file.height * 2), { fit: "fill", kernel: "lanczos3" }).png().toBuffer();
+        sizes.push(measure(await toRaw(png), 255).perceivedSize / 2);
+    }
+    const independent = (Math.max(...sizes) - Math.min(...sizes)) / Math.min(...sizes) * 100;
+    near(s.verify.spread, independent, 0.05, "strip spread against an independent as-placed check");
+});
+
+test("place measures the artwork inside a file that has its own backdrop", async () => {
+    const tile = join(TMP, "badge.png");
+    await sharp({ create: { width: 96, height: 96, channels: 3, background: "#0061fe" } })
+        .composite([{ input: Buffer.from(svg(`<path d="M30 20 L80 48 L30 76 Z" fill="#fff"/>`, 96, 96)) }]).png().toFile(tile);
+    const p = await renderPlacement(tile, { container: 96, element: 72, plate: "#f2f2f2" });
+    assert.ok(p.inside, "the backdrop is detected");
+    assert.ok(p.inside.pct > 1, `the triangle inside the badge is off center: ${p.inside.pct}`);
+});
+
+test("a tinted backdrop close to the plate's lightness still warns", async () => {
+    const tile = join(TMP, "warm.png");
+    await sharp({ create: { width: 48, height: 48, channels: 3, background: { r: 248, g: 243, b: 240 } } })
+        .composite([{ input: Buffer.from(svg(`<circle cx="24" cy="24" r="12" fill="#111"/>`, 48, 48)) }]).png().toFile(tile);
+    const m = await measureFile(tile, { bg: "#f2f2f2" });
+    assert.ok(m.warnings.some((w) => w.includes("close to the background")), m.warnings.join(" | "));
+});
+
+test("the CLI accepts a negative offset without '=' and prints its usage with --help", () => {
+    const r = cli("place", TRIANGLE_UP, "--container", "96", "--element", "60", "--offset", "-0.5,-8.3");
+    assert.equal(r.status, 0, r.stderr);
+    assert.match(r.stdout, /given offset/);
+    const help = cli("--help");
+    assert.equal(help.status, 0);
+    assert.match(help.stdout, /node optical\.mjs place/);
+});

@@ -18,8 +18,9 @@
  * stderr, results to stdout. `check` exits with code 1 when the gate fails.
  */
 import { parseArgs } from "node:util";
-import { writeFileSync } from "node:fs";
-import { basename } from "node:path";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { basename, extname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import sharp from "sharp";
 import {
     equalize, formatMeasure, measureFile, offCenter, renderFrame, renderPlacement, renderStrip, renderTile, sizeSpread, GATES,
@@ -30,27 +31,41 @@ const fail = (message, code = 2) => {
     process.exit(code);
 };
 
+/** The usage block at the top of this file, so --help and the header never disagree. */
+const USAGE = (() => {
+    const source = readFileSync(fileURLToPath(import.meta.url), "utf8");
+    return source.slice(source.indexOf("/**") + 3, source.indexOf("*/")).split("\n").map((l) => l.replace(/^ \* ?/, "")).join("\n").trim();
+})();
+
+const OPTIONS = {
+    bg: { type: "string" }, plate: { type: "string" }, out: { type: "string" }, export: { type: "string" },
+    trim: { type: "boolean", default: false }, json: { type: "boolean", default: false }, help: { type: "boolean", short: "h", default: false },
+    height: { type: "string" }, "max-width": { type: "string" }, strength: { type: "string" }, target: { type: "string" },
+    size: { type: "string" }, art: { type: "string" }, gap: { type: "string" }, scale: { type: "string" },
+    centering: { type: "string" }, sizing: { type: "string" }, metric: { type: "string" }, grow: { type: "boolean", default: false },
+    blend: { type: "string" }, tolerance: { type: "string" }, zoom: { type: "string" }, circle: { type: "boolean", default: false },
+    container: { type: "string" }, element: { type: "string" }, shape: { type: "string" }, offset: { type: "string" },
+    max: { type: "string" }, spread: { type: "boolean", default: false },
+};
+// A value that starts with a minus, as in `--offset -0.1,-3.4`, would read as an option.
+// Join it to its option, so negative offsets work without `=`.
+const argv = process.argv.slice(2).reduce((out, arg, i, all) => {
+    const prev = all[i - 1];
+    if (/^-[\d.]/.test(arg) && prev?.startsWith("--") && !prev.includes("=") && OPTIONS[prev.slice(2)]?.type === "string") out[out.length - 1] = `${prev}=${arg}`;
+    else out.push(arg);
+    return out;
+}, []);
+
 let parsed;
 try {
-    parsed = parseArgs({
-        allowPositionals: true,
-        options: {
-            bg: { type: "string" }, plate: { type: "string" }, out: { type: "string" },
-            trim: { type: "boolean", default: false }, json: { type: "boolean", default: false },
-            height: { type: "string" }, "max-width": { type: "string" }, strength: { type: "string" }, target: { type: "string" },
-            size: { type: "string" }, art: { type: "string" }, gap: { type: "string" }, scale: { type: "string" },
-            centering: { type: "string" }, sizing: { type: "string" }, metric: { type: "string" }, grow: { type: "boolean", default: false },
-            blend: { type: "string" }, tolerance: { type: "string" }, zoom: { type: "string" }, circle: { type: "boolean", default: false },
-            container: { type: "string" }, element: { type: "string" }, shape: { type: "string" }, offset: { type: "string" },
-            max: { type: "string" }, spread: { type: "boolean", default: false },
-        },
-    });
+    parsed = parseArgs({ args: argv, allowPositionals: true, options: OPTIONS });
 } catch (error) {
-    fail(`${error.message}. See the usage at the top of scripts/optical.mjs.`);
+    fail(`${error.message}. Run with --help for the usage.`);
 }
 const { values: o, positionals } = parsed;
+if (o.help) { console.log(USAGE); process.exit(0); }
 const [command, ...files] = positionals;
-const usage = () => fail("usage: optical <measure|place|check|equalize|strip|tile|frame> <image...> [options] (see the top of scripts/optical.mjs)");
+const usage = () => fail(`usage: optical <measure|place|check|equalize|strip|tile|frame> <image...> [options]. Run with --help for every option.`);
 if (!command || files.length === 0) usage();
 
 const num = (v, d) => {
@@ -70,7 +85,7 @@ const round = (v) => (typeof v === "number" ? Math.round(v * 1e4) / 1e4 : v);
 const plain = (m) => JSON.parse(JSON.stringify(m, (k, v) => (["png", "raw", "data"].includes(k) ? undefined : round(v))));
 const warn = (file, warnings = []) => warnings.forEach((w) => console.error(`warning: ${basename(file)}: ${w}`));
 const verdict = (pct, max) => `${pct <= max ? "PASS" : "FAIL"} at ${max}%`;
-const sign = (v, d = 2) => `${v >= 0 ? "+" : "−"}${Math.abs(v).toFixed(d)}`;
+const sign = (v, d = 2) => `${v >= 0 ? "+" : "-"}${Math.abs(v).toFixed(d)}`;
 
 try {
     if (command === "measure") {
@@ -112,6 +127,10 @@ try {
             // A placement that already passes needs no offset: a sub-pixel value here is rounding, not a correction.
             if (offset === "auto" && p.before.pct <= GATES.offCenterPct) console.log("css              none needed: geometric centering is already within the gate. Leave the layout as it is.");
             else console.log(`css              transform: translate(${p.offset.x.toFixed(2)}%, ${p.offset.y.toFixed(2)}%);`);
+            if (p.inside) {
+                console.log(`inside backdrop  the file has its own ${p.inside.backdrop} backdrop, so the lines above center the backdrop. The artwork inside it is ${p.inside.pct.toFixed(2)}% off center  ${verdict(p.inside.pct, GATES.offCenterPct)}`);
+                if (p.inside.pct > GATES.offCenterPct) console.log("                 To fix the artwork itself, edit or re-export the file, or ask for a transparent version.");
+            }
             if (o.out) console.log(`wrote ${o.out}  (left: geometric, right: ${label})`);
         }
     } else if (command === "check") {
@@ -150,19 +169,24 @@ try {
             height: num(o.height, 40), maxWidth: num(o["max-width"], Infinity),
             strength: num(o.strength, 0.5), target: o.target ?? "fit", metric: o.metric ?? "contrast", grow: o.grow,
         });
+        // r.scale is CSS px per source px, so above 1 a raster file is shown larger than it is.
+        rows.forEach((r) => { if (r.format !== "svg" && r.scale > 1.05) warn(r.file, [`The raster source is enlarged ${r.scale.toFixed(1)}x at 1x and more on a 2x screen, so its size is less exact. Use an SVG or a larger PNG.`]); });
         if (o.json) {
             console.log(JSON.stringify(rows.map((r) => plain({ ...r, path: r.file, css: { ink: r.rendered, file: { width: r.full.width * r.scale, height: r.full.height * r.scale } } })), null, 2));
         } else {
             const fmt = (w, h) => `${w.toFixed(1)}x${h.toFixed(1)}`;
+            const mark = (r) => (r.clamped ? "*" : "") + (r.widthLimited ? "w" : "");
             console.log(`target visual size ${rows[0].target.toFixed(1)}px at row height ${num(o.height, 40)}px`);
             console.log("file".padEnd(20) + "equal-height".padStart(14) + "visual size".padStart(13) + "correction".padStart(12) + "ink (w x h)".padStart(16) + "file (w x h)".padStart(16));
             for (const r of rows) {
                 const eq = `${Math.round(r.inkBox.width * r.baseline)}x${Math.round(r.inkBox.height * r.baseline)}`;
-                console.log(basename(r.file).padEnd(20) + eq.padStart(14) + r.baselineSize.toFixed(1).padStart(13) + `x${r.correction.toFixed(3)}${r.clamped ? "*" : ""}`.padStart(12)
+                console.log(basename(r.file).padEnd(20) + eq.padStart(14) + r.baselineSize.toFixed(1).padStart(13) + `x${r.correction.toFixed(3)}${mark(r)}`.padStart(12)
                     + fmt(r.rendered.width, r.rendered.height).padStart(16) + fmt(r.full.width * r.scale, r.full.height * r.scale).padStart(16));
             }
             console.log("ink: the visible artwork at its new size. file: the whole file at the same scale, padding included; use it to size an <img> of the file as it is.");
+            console.log("These are the computed sizes. strip renders them, corrects the rounding, and checks the result.");
             if (rows.some((r) => r.clamped)) console.log("* clamped: it would have to grow past its cell to match, so it stays at equal height (pass --grow to allow it)");
+            if (rows.some((r) => r.widthLimited)) console.log("w: --max-width set this logo's size, not the row height");
         }
     } else if (command === "strip") {
         if (!o.out) fail("strip needs --out <file.png>");
@@ -173,19 +197,25 @@ try {
         });
         s.rows.forEach((r) => warn(r.file, r.warnings));
         writeFileSync(o.out, s.png);
+        if (o.export) {
+            // Each logo cut to its ink at the rendered size: an asset whose box is the ink, so an <img> of it never overflows the row.
+            mkdirSync(o.export, { recursive: true });
+            for (const r of s.rows) writeFileSync(join(o.export, `${basename(r.file, extname(r.file))}@${s.scale}x.png`), r.render.png);
+        }
         const ok = s.verify.spread <= GATES.sizeSpreadPct;
-        // The vertical move that puts each logo's visual center on the row centerline, in CSS px.
-        const shift = (r, i) => (r.placed.top + r.placed.height / 2 - s.baselines[i]) / s.scale;
         if (o.json) {
-            console.log(JSON.stringify(plain({ out: o.out, scale: s.scale, spread: s.verify.spread, pass: ok, logos: s.rows.map((r, i) => ({ file: r.file, css: r.css, translateY: shift(r, i), perceived: s.verify.perceived[i], correction: r.correction })) }), null, 2));
+            console.log(JSON.stringify(plain({ out: o.out, scale: s.scale, spread: s.verify.spread, pass: ok, logos: s.rows.map((r) => ({ file: r.file, css: r.css, perceived: r.perceived, correction: r.correction, widthLimited: r.widthLimited })) }), null, 2));
         } else {
-            console.log(`wrote ${o.out} (${s.width}x${s.height}px at ${s.scale}x)`);
-            console.log("file".padEnd(20) + "ink css (w x h)".padStart(18) + "file css (w x h)".padStart(18) + "translateY".padStart(12) + "perceived".padStart(11));
-            s.rows.forEach((r, i) => console.log(basename(r.file).padEnd(20) + `${r.css.ink.width.toFixed(1)}x${r.css.ink.height.toFixed(1)}`.padStart(18)
-                + `${r.css.file.width.toFixed(1)}x${r.css.file.height.toFixed(1)}`.padStart(18) + `${shift(r, i).toFixed(2)}px`.padStart(12) + s.verify.perceived[i].toFixed(2).padStart(11)));
-            console.log("translateY: the move from a box-centered row to the visual centerline. Negative moves up.");
-            console.log(`size spread      ${s.verify.spread.toFixed(2)}% measured on the rendered logos  ${verdict(s.verify.spread, GATES.sizeSpreadPct)}`);
-            if (!ok && s.scale === 1) console.log("At 1x, whole-pixel rounding is about 4% of a 24px logo. Render with --scale 2 to check what a 2x screen shows.");
+            console.log(`wrote ${o.out} (${s.width}x${s.height}px at ${s.scale}x)${o.export ? `, and one trimmed PNG per logo in ${o.export}` : ""}`);
+            console.log("file".padEnd(20) + "file css (w x h)".padStart(18) + "ink css (w x h)".padStart(18) + "translate (x, y)".padStart(20) + "perceived".padStart(11));
+            s.rows.forEach((r) => console.log(basename(r.file).padEnd(20) + `${r.css.file.width.toFixed(2)}x${r.css.file.height.toFixed(2)}${r.widthLimited ? "w" : ""}`.padStart(18)
+                + `${r.css.ink.width.toFixed(1)}x${r.css.ink.height.toFixed(1)}`.padStart(18) + `${sign(r.css.translate.x)}, ${sign(r.css.translate.y)}px`.padStart(20) + r.perceived.toFixed(2).padStart(11)));
+            console.log("file css: the height to set on an <img> of the whole file. translate: the move of that box from flex centering to the visual center.");
+            if (s.rows.some((r) => r.widthLimited)) console.log("w: --max-width set this logo's size, not the row height");
+            console.log(`size spread      ${s.verify.spread.toFixed(2)}% measured on each file as rendered at ${s.scale}x  ${verdict(s.verify.spread, GATES.sizeSpreadPct)}`);
+            if (!ok) console.log(s.scale === 1
+                ? "At 1x, whole-pixel rounding is about 4% of a 24px logo. Render with --scale 2 to check what a 2x screen shows."
+                : "Rounding to whole device pixels limits small raster logos. Use SVG or larger PNG sources, or check at the scale your users see.");
         }
     } else if (command === "tile") {
         if (!o.out) fail("tile needs --out <file.png>");
@@ -195,8 +225,8 @@ try {
         });
         warn(files[0], t.warnings);
         writeFileSync(o.out, t.png);
-        console.log(formatMeasure(t.artwork, `1. artwork cropped to its ink and fitted into the art box (${o.centering ?? "visual"} centering): the offset to apply is here`));
-        console.log("\n" + formatMeasure(t.result, `2. baked tile ${o.out}: its off center line is the gate`, { verdict: true }));
+        console.log(formatMeasure(t.artwork, `1. artwork cropped to its ink and fitted into the art box (${o.centering ?? "visual"} centering). The bake applies this offset; for a component, use place instead.`, { css: false }));
+        console.log("\n" + formatMeasure(t.result, `2. baked tile ${o.out}: its off center line is the gate`, { verdict: true, css: false }));
     } else if (command === "frame") {
         if (!o.out) fail("frame needs --out <file.png>");
         const f = await renderFrame(files[0], {

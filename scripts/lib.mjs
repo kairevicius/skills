@@ -202,8 +202,12 @@ export function inputWarnings(raw, bg) {
     const own = detectBackground(raw);
     if (own.opaque) {
         const differs = Math.abs(own.color.lum - color.lum) / 255 > BACKGROUND_CONTRAST;
+        // Luminance alone misses a tinted backdrop of the same lightness, which still shows as a faint rectangle.
+        const tinted = Math.max(Math.abs(own.color.r - color.r), Math.abs(own.color.g - color.g), Math.abs(own.color.b - color.b)) > 4;
         if (own.share >= BORDER_UNIFORM && differs) {
             warnings.push(`The image has its own opaque background (${own.hex}), unlike the ${bgText}. It renders as a tile or badge. To check the artwork inside it, use --bg auto. On a different plate, a transparent source works better.`);
+        } else if (own.share >= BORDER_UNIFORM && tinted) {
+            warnings.push(`The image has its own opaque background (${own.hex}), close to the ${bgText} but not the same color. It may show as a faint rectangle. A transparent source avoids that.`);
         } else if (own.share < BORDER_UNIFORM && differs) {
             warnings.push("The image is opaque and its border has no single color, so it may be a photo or full-bleed artwork. Use frame for a photo, or pass the backdrop with --bg.");
         }
@@ -333,7 +337,7 @@ export async function measureFile(file, { bg = "255", trim = false, maxEdge, ble
     const { color, notes } = resolveBackground(bg, loaded.raw);
     const { png, raw } = trim ? await cropToInk(loaded.png, loaded.raw, color.lum, tolerance) : loaded;
     const m = measure(raw, color.lum, { blend, backgroundContrast: tolerance });
-    return { file, color, png, raw, full: { width: loaded.raw.width, height: loaded.raw.height }, ...m, warnings: [...notes, ...inputWarnings(loaded.raw, color)] };
+    return { file, format: loaded.format, color, png, raw, full: { width: loaded.raw.width, height: loaded.raw.height }, ...m, warnings: [...notes, ...inputWarnings(loaded.raw, color)] };
 }
 
 /** Distance from the visual center to the box center, as px and as a percentage of the shorter side. */
@@ -376,7 +380,17 @@ export async function renderPlacement(file, {
         ? sharp(file, { failOn: "none", density: (72 * Math.max(pw, ph)) / Math.max(meta.width || 1, meta.height || 1) })
         : sharp(file, { failOn: "none" });
     const art = await source.resize(pw, ph, { fit: "fill", kernel: "lanczos3" }).ensureAlpha().png().toBuffer();
-    const warnings = inputWarnings(await toRaw(art), color);
+    const artRaw = await toRaw(art);
+    const warnings = inputWarnings(artRaw, color);
+    // An opaque file always looks centered as a whole, so the gate on the container says
+    // nothing about the artwork inside it. Measure that artwork against its own backdrop.
+    const own = detectBackground(artRaw);
+    let inside = null;
+    if (own.opaque && own.share >= BORDER_UNIFORM) {
+        const m = measure(artRaw, own.color.lum, { blend });
+        const off = Math.hypot(m.visual.x - m.box.x, m.visual.y - m.box.y);
+        inside = { backdrop: own.hex, pct: (off / Math.min(pw, ph)) * 100, offset: { x: m.offsetPct.x, y: m.offsetPct.y } };
+    }
     const enlarged = ew / (meta.width || ew);
     if (meta.format !== "svg" && enlarged > 1.05) warnings.push(`The raster source is enlarged ${enlarged.toFixed(1)}x at 1x (from ${meta.width}px), so its edges blur and the offset is less exact. Use an SVG or a larger PNG.`);
     const bake = async (dx, dy) => sharp({ create: { width: W, height: H, channels: 4, background: toHex(color) } })
@@ -411,7 +425,7 @@ export async function renderPlacement(file, {
         before: { png: await shown(before), ...(await score(before)) },
         after: { png: await shown(after), ...(await score(after)) },
         offset: { x: (dx / pw) * 100, y: (dy / ph) * 100, px: { x: dx / scale, y: dy / scale } },
-        element: { width: ew, height: eh }, container: { width: cw, height: ch }, scale, plate: color, warnings,
+        element: { width: ew, height: eh }, container: { width: cw, height: ch }, scale, plate: color, warnings, inside,
     };
 }
 
@@ -515,6 +529,8 @@ export function equalize(items, { height = 40, maxWidth = Infinity, strength = 0
             target: goal,
             correction,
             clamped,
+            // The max width, not the row height, set this element's baseline.
+            widthLimited: maxWidth / r.inkBox.width < height / r.inkBox.height,
             scale,
             rendered: { width: r.inkBox.width * scale, height: r.inkBox.height * scale },
             renderedSize: r.baselineSize * correction,
@@ -533,11 +549,14 @@ const TRANSPARENT = { r: 0, g: 0, b: 0, alpha: 0 };
  */
 export async function renderTile(file, { size = 256, art = 0.76, plate = "#ffffff", centering = "visual", blend, passes = 4 } = {}) {
     const color = parseColor(plate);
-    const { png, full } = await loadRaster(file, { trim: true, bg: plate });
+    const { png, full, format } = await loadRaster(file, { trim: true, bg: plate });
     const warnings = inputWarnings(full.raw, color);
     const artBox = Math.round(size * art);
     const artwork = await sharp(png).resize(artBox, artBox, { fit: "inside", background: TRANSPARENT }).png().toBuffer();
     const raw = await toRaw(artwork);
+    const trimmed = await sharp(png).metadata();
+    const enlarged = Math.max(raw.width / trimmed.width, raw.height / trimmed.height);
+    if (format !== "svg" && enlarged > 1.05) warnings.push(`The raster source is enlarged ${enlarged.toFixed(1)}x to fill the art box, so its edges blur. Use an SVG or a larger PNG, or bake at the device pixel ratio with a larger --size.`);
     const m = measure(raw, color.lum, { blend, forceDiscount: centering === "forced" });
     const anchor = centering === "visual" || centering === "forced" ? m.visual
         : centering === "mass" ? m.massCentroid
@@ -577,7 +596,13 @@ export async function renderTile(file, { size = 256, art = 0.76, plate = "#fffff
  * Lay logos out on shared baselines. `sizing: "height"` gives every logo the same
  * ink-box height (the geometric default); `sizing: "visual"` equalizes visual size,
  * always across the WHOLE set so wrapping into rows cannot change a logo's scale.
- * `centering` places each logo's visual or box center on its row's centerline.
+ * `centering: "visual"` places each logo's visual center on its row's centerline;
+ * `"box"` centers the file's own box, which is what CSS `align-items: center` does.
+ *
+ * Each logo is rendered as it ships: the whole file, padding included, resized to the
+ * height the page will set. Sizes, placement, and the size gate are measured on that
+ * render, so the numbers describe the `<img>` as placed rather than a cropped copy.
+ * Only the ink of each render is drawn into the strip, so padding never covers a neighbor.
  *
  * `columns` wraps the set into rows of that many logos; each row is centered, so a
  * short last row does not read as left-aligned. `paddingY` sets the plate's own top and
@@ -590,7 +615,7 @@ export async function renderTile(file, { size = 256, art = 0.76, plate = "#fffff
  * `scale` renders at that many device pixels per CSS pixel: a 1px rounding step is
  * about 4% of a 24px logo, so a size check at 1x cannot resolve the 3% gate. Every
  * returned size is in CSS pixels. `verify` holds the perceived size of each logo as
- * measured in the rendered strip, and their spread, which is the size gate.
+ * rendered, and their spread, which is the size gate.
  */
 export async function renderStrip(files, {
     height = 40, gap = 48, padding = 32, paddingY = padding, rowGap = paddingY * 2, bg = "#ffffff", strength = 0.5, maxWidth = Infinity,
@@ -602,49 +627,49 @@ export async function renderStrip(files, {
     [height, gap, padding, paddingY, rowGap, maxWidth] = [height, gap, padding, paddingY, rowGap, maxWidth].map((v) => v * scale);
     if (canvasWidth) canvasWidth *= scale;
     const loaded = await Promise.all(files.map(async (file) => {
-        const { png, raw, full, format } = await loadRaster(file, { trim: true, bg });
-        return { file, png, format, full: { width: full.width, height: full.height }, ...measure(raw, color.lum), warnings: inputWarnings(full.raw, color) };
+        const { raw, full, format } = await loadRaster(file, { trim: true, bg });
+        return { file, format, fullPng: full.png, full: { width: full.width, height: full.height }, ...measure(raw, color.lum), warnings: inputWarnings(full.raw, color) };
     }));
     const rows = equalize(loaded, { height, maxWidth, strength: sizing === "visual" ? strength : 0, target, metric, grow });
-    // Vertical padding is separate: raising it gives the plate more room without widening
-    // the canvas, which would shrink every logo once the page scales the figure to one width.
-    // `rowGap` is separate again, because stacking uniform padded bands puts twice the outer
-    // padding between two rows and the pair then reads as two plates rather than one group.
     const perRow = Math.max(1, Math.min(columns, rows.length));
 
-    // Scale every logo first, so a row's width is known before it is placed. One factor
-    // for both axes: the cropped raster can be a pixel larger than its ink box, and
-    // fitting it into the ink box's size would squash it.
+    /** The whole file at k device pixels per source pixel, measured, with its visible ink cut out for drawing. */
+    const render = async (r, k) => {
+        const W = Math.max(1, Math.round(r.full.width * k)), H = Math.max(1, Math.round(r.full.height * k));
+        const filePng = await sharp(r.fullPng).resize(W, H, { fit: "fill", kernel: "lanczos3" }).png().toBuffer();
+        const fileRaw = await toRaw(filePng);
+        const m = measure(fileRaw, color.lum);
+        const ink = await cropToInk(filePng, fileRaw, color.lum);
+        const cut = ink.crop ?? { left: 0, top: 0, width: W, height: H };
+        return { r, k, W, H, m, png: ink.png, cut, w: cut.width, h: cut.height };
+    };
     const scaled = [];
-    for (const r of rows) {
-        const w = Math.max(1, Math.round(r.width * r.scale));
-        const h = Math.max(1, Math.round(r.height * r.scale));
-        const png = await sharp(r.png).resize(w, h, { fit: "fill", kernel: "lanczos3" }).png().toBuffer();
-        scaled.push({ r, png, w, h, m: measure(await toRaw(png), color.lum) });
-    }
-    // Correct the size residual the way placement corrects its position. Resampling a
-    // small source moves its ink box by a pixel, which is several percent of a 24px logo,
-    // so measure each resized logo and rescale it toward the anchor's measured perceived
-    // size until the sizes stop moving. The anchor is the element the target names: the
-    // smallest for `fit`, the named file or the median otherwise.
+    for (const r of rows) scaled.push(await render(r, r.scale));
+
+    // Correct the size residual the way placement corrects its position. Resampling moves
+    // an ink box by a pixel, which is several percent of a 24px logo, so measure each file
+    // as rendered and rescale it toward the anchor's measured perceived size until the
+    // sizes stop moving. The anchor is the element the target names: the smallest for
+    // `fit`, the named file or the median otherwise.
     if (sizing === "visual" && scaled.length > 1) {
         const anchors = scaled.filter((s) => Math.abs(s.r.correction - 1) < 1e-3 && (target === "fit" || !s.r.clamped));
         if (anchors.length) {
             const goal = Math.min(...anchors.map((s) => s.m.perceivedSize));
-            for (let pass = 0; pass < 3; pass++) {
+            for (let pass = 0; pass < 4; pass++) {
                 let moved = false;
-                for (const s of scaled) {
-                    const k = goal / s.m.perceivedSize;
-                    const w = Math.max(1, Math.round(s.w * k)), h = Math.max(1, Math.round(s.h * k));
-                    if (Math.abs(k - 1) < 0.004 || (w === s.w && h === s.h) || (!grow && h > height)) continue;
-                    s.png = await sharp(s.r.png).resize(w, h, { fit: "fill", kernel: "lanczos3" }).png().toBuffer();
-                    s.w = w; s.h = h; s.m = measure(await toRaw(s.png), color.lum); moved = true;
+                for (const [i, s] of scaled.entries()) {
+                    const ratio = goal / s.m.perceivedSize;
+                    if (Math.abs(ratio - 1) < 0.004) continue;
+                    const next = await render(s.r, s.k * ratio);
+                    if (next.W === s.W && next.H === s.H) continue;
+                    if (!grow && next.m.inkBox.height > height + 0.5) continue;
+                    scaled[i] = next; moved = true;
                 }
                 if (!moved) break;
             }
-            for (const s of scaled) s.r.scale = s.w / s.r.width;
         }
     }
+
     const groups = [];
     for (let i = 0; i < scaled.length; i += perRow) groups.push(scaled.slice(i, i + perRow));
     const groupWidth = (g) => g.reduce((sum, s) => sum + s.w, 0) + gap * (g.length - 1);
@@ -657,14 +682,15 @@ export async function renderStrip(files, {
         const centerY = paddingY + height / 2 + gi * (height + rowGap);
         let x = (width - groupWidth(g)) / 2;
         for (const s of g) {
-            const anchorY = centering === "visual" ? s.m.visual.y : s.m.box.y;
+            // The anchor in the ink cut's coordinates: the visual center, or the file box center.
+            const anchorY = (centering === "visual" ? s.m.visual.y : s.H / 2) - s.cut.top;
             const top = Math.round(centerY - anchorY);
             const left = Math.round(x);
             comps.push({ input: s.png, left, top });
             s.r.placed = {
                 left, top, width: s.w, height: s.h,
-                box: { x: left + s.w / 2, y: top + s.h / 2 },
-                visual: { x: left + s.m.visual.x, y: top + s.m.visual.y },
+                box: { x: left - s.cut.left + s.W / 2, y: top - s.cut.top + s.H / 2 },
+                visual: { x: left - s.cut.left + s.m.visual.x, y: top - s.cut.top + s.m.visual.y },
             };
             baselines.push(centerY);
             x += s.w + gap;
@@ -676,24 +702,24 @@ export async function renderStrip(files, {
         .flatten({ background: toHex(color) })
         .png()
         .toBuffer();
-    // Measure each logo as rendered, before the strip is flattened. Flattening turns the
-    // faint anti-aliased edge into opaque light pixels that pass the background threshold,
-    // so a crop of the flat strip counts an edge the ink box otherwise ignores, and that
-    // inflates a small logo by a pixel.
-    const perceived = scaled.map((s) => s.m.perceivedSize / scale);
+
     for (const s of scaled) {
-        const enlarged = s.w / s.r.full.width;
-        if (s.r.format !== "svg" && enlarged > 1.05) {
-            s.r.warnings.push(`The raster source is enlarged ${enlarged.toFixed(1)}x (from ${s.r.full.width}px), so its edges blur and its size is less exact. Use an SVG or a larger PNG.`);
+        const r = s.r;
+        r.render = { png: s.png, width: s.w, height: s.h };
+        r.scale = s.k;
+        r.perceived = s.m.perceivedSize / scale;
+        r.css = {
+            // The whole file as the page sets it, the ink inside it, and the optical move of the file box.
+            file: { width: s.W / scale, height: s.H / scale },
+            ink: { width: s.m.inkBox.width / scale, height: s.m.inkBox.height / scale },
+            translate: { x: s.m.offset.x / scale, y: s.m.offset.y / scale },
+        };
+        const enlarged = s.W / r.full.width;
+        if (r.format !== "svg" && enlarged > 1.05) {
+            r.warnings.push(`The raster source is enlarged ${enlarged.toFixed(1)}x at ${scale}x (${r.full.width}px file shown at ${(s.W / scale).toFixed(1)}px), so its edges blur and its size is less exact. Use an SVG or a larger PNG.`);
         }
     }
-    for (const r of rows) {
-        // CSS sizes: the ink as rendered, and the whole file as placed, padding included.
-        r.css = {
-            ink: { width: r.placed.width / scale, height: r.placed.height / scale },
-            file: { width: (r.full.width * r.scale) / scale, height: (r.full.height * r.scale) / scale },
-        };
-    }
+    const perceived = scaled.map((s) => s.r.perceived);
     return {
         png, rows, width, height: totalHeight, rowHeight: height + rowGap, baselines, bg: color, scale, css,
         verify: { perceived, spread: sizeSpread(perceived) },
@@ -708,7 +734,7 @@ const pct = (n) => `${n >= 0 ? "+" : ""}${n.toFixed(1)}%`;
  * center line; use it only when the image is a rendered container, because the off
  * center of a bare element is the size of its correction, not a failure.
  */
-export function formatMeasure(m, label = "", { verdict = false } = {}) {
+export function formatMeasure(m, label = "", { verdict = false, css = true } = {}) {
     const lines = [];
     if (label) lines.push(label);
     lines.push(`image            ${m.width}x${m.height}, background luminance ${f1(m.bgLum)}`);
@@ -722,7 +748,7 @@ export function formatMeasure(m, label = "", { verdict = false } = {}) {
     lines.push(`visual size      ${f1(m.sizes.contrast)}px (sqrt of contrast-weighted ink area)`);
     lines.push(`perceived size   ${f1(m.perceivedSize)}px (geometric mean of visual size and ink height; equal across an equalized set)`);
     lines.push(`offset to apply  x ${m.offset.x >= 0 ? "+" : ""}${f1(m.offset.x)}px (${pct(m.offsetPct.x)}), y ${m.offset.y >= 0 ? "+" : ""}${f1(m.offset.y)}px (${pct(m.offsetPct.y)})  (positive y moves the element down)`);
-    lines.push(`css              transform: translate(${m.offsetPct.x.toFixed(2)}%, ${m.offsetPct.y.toFixed(2)}%)  (percent of this image's own box, as placed)`);
+    if (css) lines.push(`css              transform: translate(${m.offsetPct.x.toFixed(2)}%, ${m.offsetPct.y.toFixed(2)}%)  (percent of this image's own box, as placed)`);
     const off = offCenter(m);
     if (m.alphaArea === 0) lines.push("off center       not measurable: no ink against this background");
     else if (verdict) lines.push(`off center       ${off.pct.toFixed(2)}% of the shorter side (${f1(off.px)}px)  ${off.pct <= GATES.offCenterPct ? "PASS" : "FAIL"} at ${GATES.offCenterPct}%`);

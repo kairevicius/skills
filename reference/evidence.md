@@ -76,7 +76,7 @@ How to read it:
 - At equal height, Slack, Netflix, and Amazon have the largest visual sizes. Airbnb has the smallest, so it is the target, and it keeps its full height.
 - Apple and Mastercard are compact marks with small visual sizes at equal height. They shrink less than the wide wordmarks.
 - The `file` column is larger than the `ink` column where the SVG has padding, as Google and Shopify do. Use it to size an `<img>` of the file.
-- `node scripts/optical.mjs strip <same files> --out strip.png --height 40` renders the row and measures a size spread of 0.76%.
+- `node scripts/optical.mjs strip <same files> --out strip.png --height 40` renders each file at its printed height and measures a size spread of 0.73%.
 
 ## Calibration: the size power on an icon set
 
@@ -109,9 +109,16 @@ The method was tuned on the logos in `docs/sources`. On 2026-10-03 it was tested
 | connector logos, 48px PNGs with transparency, in a 96px tile | 50 | 24 | 0 | 0.53% |
 | Lucide stroke icons, white on a dark round button | 24 | 9 | 0 | 0.25% |
 
-Visual inspection of the 24 largest logo corrections showed the expected direction in each case: heavy bases move up, top-heavy marks move down, and arrows move toward their tail. Lucide draws its play icon already shifted right inside its frame. The skill measures that frame-centered play icon at 0.08% off center, which agrees with the designers' hand placement.
+Visual inspection of the 24 largest logo corrections showed the expected direction in each case. Heavy bases move up, top-heavy marks move down, and arrows move toward their tail. Lucide draws its play icon already shifted right inside its frame. The skill measures that frame-centered play icon at 0.08% off center, which agrees with the designers' hand placement.
 
-Three agents also tested the skill cold, with only this folder and a realistic request: logo tiles, a logo wall, and a play button. Their reports found the failures that the current version fixes: trim against the corner pixel, silent zeros for a white icon and an opaque backdrop, no command to verify a CSS offset, and unclear gates. `scripts/test.mjs` keeps each of those fixed.
+Three agents also tested the skill cold, with only this folder and a realistic request: logo tiles, a logo wall, and a play button. Their reports found the failures that the current version fixes:
+
+- trim against the corner pixel;
+- silent zeros for a white icon and for an opaque backdrop;
+- no command to verify a CSS offset;
+- unclear gates.
+
+`scripts/test.mjs` keeps each of those fixed.
 
 ## Cases in the write-up
 
@@ -142,4 +149,4 @@ Designers already make these corrections by eye. The skill measures them. Cite t
 
 ## History
 
-The method started in September 2026 on a pipeline that bakes company logos into square tiles. The Amazon wordmark looked too high on its white tile, although the bake used alpha-centroid centering. The accent discount came first. The 1/3 limit came next, when the two PayPal blues moved off center under the discount. The size rule came last, when a logo strip at equal height looked uneven. In October 2026, cold-agent tests and the held-out validation above added the input warnings, `place`, `check`, and the size correction in `strip`.
+The method started in September 2026 on a pipeline that bakes company logos into square tiles. The Amazon wordmark looked too high on its white tile, although the bake used alpha-centroid centering. The accent discount came first. The 1/3 limit came next, when the two PayPal blues moved off center under the discount. The size rule came last, when a logo strip at equal height looked uneven. In October 2026, cold-agent tests and the held-out validation above added the input warnings, `place`, `check`, and the size correction in `strip`. A second cold round made `strip` render each whole file as it ships. Its earlier check on cropped copies passed a row that measured 3–4% as placed.

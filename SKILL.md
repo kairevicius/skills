@@ -16,6 +16,7 @@ This skill measures both and gives two values. The offset puts the visual center
 
 These are the words that the script prints. Use each one with this meaning only.
 
+- **element size**: the size of the file's own box as the layout places it, padding included. It is the box of the `<img>` or `<svg>`, not of its ink.
 - **box center**: the center of the image as the layout places it.
 - **ink**: pixels with a contrast above 0.02 against the background.
 - **faint ink**: ink with a contrast below 0.6. Strong ink has a contrast of 0.6 or more.
@@ -32,19 +33,19 @@ These are the words that the script prints. Use each one with this meaning only.
 
 ## Setup
 
-Install sharp once: `cd <skill folder>/scripts && npm install`. Then run `node <skill folder>/scripts/optical.mjs ...` from any folder. To use the library in your own script, import it by path, for example `import { measureFile } from "<skill folder>/scripts/lib.mjs"`. The library resolves sharp from its own folder.
+Install sharp once: `cd <skill folder>/scripts && npm install`. Then run `node <skill folder>/scripts/optical.mjs ...` from any folder. `optical.mjs --help` lists every command and option. To use the library in your own script, import it by path, for example `import { measureFile } from "<skill folder>/scripts/lib.mjs"`. The library resolves sharp from its own folder.
 
 ## Inputs
 
 - **The element**, as SVG, PNG, JPEG, or WebP. An SVG is best. A raster smaller than its render size blurs, and the script warns when it must enlarge one.
 - **The background it renders on**: `--bg` with a luminance (`255` is white, `0` is black) or a hex color. Use `--bg auto` for an opaque file to read its own backdrop.
-- **How the layout places it**: its container size, its element size, and whether CSS, a design file, an asset bake, or a strip layout sets the position.
+- **How the layout places it**: the container size and the element size. Also note what sets the position: CSS, a design file, an asset bake, or a strip layout.
 
 Three input rules prevent most wrong answers:
 
 1. **Give the real background.** A white or `currentColor` icon on a dark button needs `--bg` set to the button color. On the default white, it has no ink, and the script warns.
 2. **Measure the file as the layout places it.** An icon in an SVG viewBox or a padded PNG is placed by its whole box, so do not use `--trim`. Use `--trim` only for an asset that the layout places by its ink, such as a trimmed logo.
-3. **Treat an opaque backdrop as part of the element.** On a plate of another color, the backdrop shows as a rectangle. Check the artwork inside it with `--bg auto`, and ask for a transparent source.
+3. **Treat an opaque backdrop as part of the element.** In a container of another color, the backdrop shows as a rectangle. Check the artwork inside it with `--bg auto`, and ask for a transparent source.
 
 ## Procedure
 
@@ -54,28 +55,40 @@ Three input rules prevent most wrong answers:
 
    | case | command | read |
    |---|---|---|
-   | an element in a container (CSS, a design file) | `node scripts/optical.mjs place <file> --container 40 --element 20 --plate <#hex> [--shape circle] --out pair.png` | `css` and the two `off center` lines |
-   | an offset you already use | add `--offset <x%>,<y%>` to `place` | the `given offset` line |
+   | an element in a container (CSS, a design file) | `node scripts/optical.mjs place <file> --container 40 --element 20 --plate <#hex> [--shape circle] --out pair.png` | `css`, the two `off center` lines, and `inside backdrop` for an opaque file |
+   | an offset you already use | add `--offset <x%>,<y%>` to `place`, for example `--offset -0.12,-3.41` | the `given offset` line |
    | one element, numbers only | `node scripts/optical.mjs measure <file> --bg <#hex>` | `offset to apply` and `css` |
-   | an avatar or app tile that you bake | `node scripts/optical.mjs tile <file> --out tile.png --size 96 --art 0.75 --plate <#hex>` | block 1 for the offset, block 2 for the gate |
-   | a set of logos | `node scripts/optical.mjs equalize <files...> --height <px> [--max-width <px>]` | `ink (w x h)`, or `file (w x h)` for a padded file |
-   | a rendered logo row | `node scripts/optical.mjs strip <files...> --out strip.png --height <px> --scale 2` | the table and `size spread` |
+   | a logo row or wall | `node scripts/optical.mjs strip <files...> --out strip.png --height <px> [--max-width <px>] --scale 2` | the table and `size spread` (see the recipe below) |
+   | an avatar or app tile baked into an image file | `node scripts/optical.mjs tile <file> --out tile.png --size 192 --art 0.75 --plate <#hex>` | block 2 for the gate; for a component, use `place` instead |
+   | the numbers before a change | `strip ... --sizing height --centering box`, or `check --spread <files...>` on the files as they are | `size spread` |
    | a photo crop | `node scripts/optical.mjs frame <photo> --out avatar.png --bg <backdrop #hex> [--zoom 0.9] [--circle]` | `crop` and the `framed` block |
+
+   `equalize` prints the computed sizes without rendering. Use `strip` for the values you ship, because it renders each file, corrects the rounding, and checks the result.
 
 4. **Apply the value where the rule lives:**
    - a component: `transform: translate(x%, y%)` from the `css` line. The percentages are of the element box as placed, so they hold at every size;
    - an icon set: one offset for each icon name;
    - a text component: an offset in em;
-   - an asset bake: place the element by its visual center (`tile` does this);
-   - a logo row: one height for each logo, plus the `translateY` from `strip`;
+   - an asset bake: place the element by its visual center (`tile` does this). Bake at the device pixel ratio, for example `--size 192` for a 96px tile on a 2x screen;
+   - a logo row: one height and one translate for each logo, from `strip` (recipe below);
    - a design file: a px move at the measured size.
-5. **Verify the output.** `place` and `strip` verify their own render. For a real screenshot, crop the container and run `node scripts/optical.mjs check <crop.png> --bg <#hex>`. The command exits with code 1 when the gate fails.
+
+   **Logo row recipe.** Run `strip` at the device pixel ratio that your users see, usually `--scale 2`. For each logo, set the `<img>` height to its `file css` height, and apply its `translate`. Each value is for the whole file as it is, padding included:
+
+   ```css
+   .logos { display: flex; align-items: center; gap: 40px; }
+   .logos img { width: auto; } /* then, per logo: height: 36.5px; transform: translate(0px, -1.25px); */
+   ```
+
+   A padded file can be taller than the row although its ink fits. To ship assets whose box is the ink, add `--export <dir>`; it writes one trimmed PNG per logo at the rendered size.
+5. **Verify the output.** `place` and `strip` verify their own render. For a real screenshot, crop the container and run `node scripts/optical.mjs check <crop.png> --bg <#hex>`. The command exits with code 1 when the gate fails. If you cannot reach the live layout, say that the result is verified on a render only.
 6. **Record the value.** Put the measured offset next to the code that applies it, with the command that produced it.
 
 ## Decision points
 
 - **Already within the gate.** Leave it. `place` prints "none needed" when geometric centering passes. Report the numbers, and if the user still sees a problem, check the layout (procedure step 1).
-- **Self-backgrounded elements** (a disc mark, an app icon on its own colored square, a full-bleed image). Check the artwork inside with `--bg auto`. Skip centering if it passes. In a set, size it like any other logo.
+- **Self-backgrounded elements** (a disc mark, an app icon on its own colored square, a full-bleed image). `place` measures the artwork inside the backdrop and prints `inside backdrop`; `measure --bg auto` does the same. Skip centering if it passes. In a set, size it like any other logo.
+- **A backdrop that shows in the container.** A white or colored square on a tile of another color is a source problem, not a centering problem. Tell the user, and ask for a transparent version of the file.
 - **Single-color marks.** The weights give the alpha centroid. Run the measurement anyway, because it confirms the case.
 - **Two-tone marks.** Read `faint-ink share`. At 33% or less, the accent discount applies. Above 33%, all ink counts. Never override this by hand. If the share is near 33%, compare the source and the output, because anti-aliased edges add faint ink.
 - **Solid asymmetric shapes** (triangle, arrow, chevron, pin, heart). Keep `--blend 0.5`. From box centering, the mass centroid moves a triangle up by a sixth of its height, twice the move of the visual center.
@@ -90,7 +103,7 @@ Three input rules prevent most wrong answers:
 ## Verification gates
 
 - **Off center: 1% or less of the container's shorter side**, measured on a render at 2x or more. `place` renders at 4x. At 1x, whole-pixel rounding alone can move a 40px button by 0.6%.
-- **Size spread: 3% or less** for a set, measured on the rendered logos. Use `strip --scale 2`, because at 1x a one-pixel step is about 4% of a 24px logo. CSS accepts the half-pixel heights that `strip` prints.
+- **Size spread: 3% or less** for a set, measured on each file as it ships. `strip` renders the whole files at the printed heights and measures them. Use the device pixel ratio that your users see, usually `--scale 2`, because at 1x a one-pixel step is about 4% of a 24px logo. Small raster sources can stay above 3% at any scale; use SVG or larger files.
 - **A real screenshot**, when the layout is live. Capture it at 4x, for example with headless Chrome `--force-device-scale-factor=4`. Crop the container and run `check`. Do not use a virtual-time-budget capture.
 - **Code.** When the placement rule is code, add two regression tests. A two-tone fixture with faint ink at most 1/3 must put the mass centroid on the center. A fixture with faint ink above 1/3 must keep the alpha centroid.
 
