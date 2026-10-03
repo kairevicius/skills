@@ -1,16 +1,17 @@
 /**
- * Builds docs/index.html and every figure under docs/assets from the skill's
- * own measurement code, so each number on the page is a real measurement of
- * the image beside it. Re-run after any change to lib.mjs:
+ * Builds the docs site from the skill's own measurement code, so each number on
+ * a page is a real measurement of the image beside it. Re-run after any change to lib.mjs:
  *
- *   node scripts/build-docs.mjs   # writes docs/assets/*.png, then docs/index.html with them embedded
+ *   npm run docs          # docs/index.html (landing), write-up.html, demo.html, and docs/assets
+ *   npm run docs:inline   # the same pages with every figure embedded, one file each
  */
 import sharp from "sharp";
 import { mkdirSync, writeFileSync, readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import renderV2 from "./page-v2.mjs";
+import renderWriteUp from "./page-write-up.mjs";
 import { renderDemo } from "./build-demo.mjs";
+import renderLanding from "./page-landing.mjs";
 import { equalize, measure, measureFile, loadRaster, luminance, parseColor, rasterizeSvg, renderFrame, renderStrip, renderTile, toRaw, ACCENT_CONTRAST, ACCENT_MAX_SHARE, BACKGROUND_CONTRAST, CENTER_BLEND, EXTENT_ALPHA, DEFAULT_RASTER_EDGE } from "./lib.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -866,341 +867,45 @@ const img = (rec, w, h, alt, cls = "") => `<span class="fig ${cls}${rec.dark ? "
 /** The caption is not rendered: the label, the measurements and the section prose carry it. It stays as the image's alt text. */
 const fig = (rec, w, h, caption, alt, cls = "") => `<figure>${label(rec)}${img(rec, w, h, caption || alt, cls)}</figure>`;
 
-const html = `<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Optical balance</title>
-<style>
-:root { --paper: #fbfbfb; --ink: #1a1a1a; --muted: #6b6b6b; --faint: #a3a3a3; --hair: #e4e4e4; --accent: ${ACCENT}; --link: ${LINK}; --guide: ${GUIDE}; }
-* { box-sizing: border-box; }
-html { color-scheme: light; }
-body { margin: 0; background: var(--paper); color: var(--ink); font: 16px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; -webkit-font-smoothing: antialiased; }
-main { max-width: 880px; margin: 0 auto; padding: 72px 32px 96px; }
-h1 { font-size: 28px; font-weight: 600; line-height: 1.2; margin: 0 0 12px; letter-spacing: -0.01em; }
-h2 { font-size: 20px; font-weight: 600; line-height: 1.3; margin: 72px 0 8px; letter-spacing: -0.005em; }
-h3 { font-size: 16px; font-weight: 600; margin: 40px 0 8px; }
-p { margin: 0 0 14px; max-width: 640px; }
-.lede { font-size: 20px; line-height: 1.45; color: var(--ink); max-width: 680px; margin-bottom: 8px; }
-.muted { color: var(--muted); }
-small, figcaption, .caption, pre, table { font-size: 13px; }
-figcaption { color: var(--muted); margin-top: 8px; line-height: 1.45; }
-.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 24px 32px; align-items: start; margin: 40px 0 16px; }
-.steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; align-items: start; margin: 48px 0 40px; }
-.steps figure { min-width: 0; }
-.steps figcaption { max-width: none; }
-@media (max-width: 720px) { .steps { grid-template-columns: 1fr; } }
-.pair figure { min-width: 0; }
-.pair.stack { grid-template-columns: minmax(0, ${PAIR_W * 2}px); row-gap: 28px; }
-figure { margin: 0; }
-figure.wide { margin: 40px 0 16px; }
-/* Two stacked strips are tall blocks; the pair needs a clear break, not a hairline. */
-figure.wide + figure.wide { margin-top: 64px; }
-.fig { position: relative; display: block; width: 100%; }
-.fig img { display: block; width: 100%; height: auto; }
-.fig.tile { outline: 1px solid var(--hair); }
-.overlay { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
-.overlay-lines { mix-blend-mode: multiply; }
-.fig.dark .overlay-lines { mix-blend-mode: screen; }
-.overlay .guide, .overlay .mark { display: none; }
-.overlay .bbox { fill: none; stroke: #a6a6a6; stroke-width: 1px; stroke-dasharray: 4 3; vector-effect: non-scaling-stroke; }
-.fig.dark .overlay .bbox { stroke: #6a6a6a; }
-.overlay .measure-line { stroke: var(--muted); stroke-width: 1px; vector-effect: non-scaling-stroke; }
-.overlay .measure-cap { fill: var(--muted); }
-.overlay .measure-text { fill: var(--ink); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-weight: 500; }
-.fig.dark .overlay .measure-line { stroke: #a0a0a0; }
-.fig.dark .overlay .measure-cap { fill: #a0a0a0; }
-.fig.dark .overlay .measure-text { fill: #e6e6e6; }
-/* The markers cycle in and out on their own, so the figure is readable bare and
-   then annotated without the reader operating anything. */
-@keyframes marker-cycle {
-    0%, 4% { opacity: 0; filter: blur(10px); }
-    16%, 52% { opacity: 1; filter: blur(0); }
-    64%, 100% { opacity: 0; filter: blur(10px); }
+// The pages link their figures from docs/assets, which suits a site. `--inline` embeds every
+// figure instead, so a page renders on its own wherever it is opened or sent.
+const INLINE = process.argv.includes("--inline");
+const MIME = { png: "image/png", webp: "image/webp" };
+const inline = (page) => page.replace(/(src|href)="assets\/([^"]+)"/g, (_, attr, name) => `${attr}="data:${MIME[name.split(".").pop()]};base64,${readFileSync(join(OUT, name)).toString("base64")}"`);
+const finish = (page) => (INLINE ? inline(page) : page);
+
+// A phone loads the landing page, so its figures ship as WebP at a fraction of the PNG size.
+const LANDING_FIGURES = ["amazon-box", "amazon-visual", "play-before", "play-after", "vercel-box", "vercel-visual", "button-before", "button-after", "strip-before", "strip-after"];
+const webp = {};
+for (const id of LANDING_FIGURES) {
+    const name = F[id].src.replace(/^assets\//, "").replace(/\.png$/, ".webp");
+    await sharp(join(OUT, name.replace(/\.webp$/, ".png"))).webp({ quality: 88, effort: 6 }).toFile(join(OUT, name));
+    webp[id] = `assets/${name}`;
 }
-.overlay { animation: marker-cycle 7s cubic-bezier(0.4, 0, 0.2, 1) infinite; }
-@media (prefers-reduced-motion: reduce) {
-    .overlay { animation: none; opacity: 1; filter: none; }
+
+// The README shows one picture made from the same figures: two pairs, geometric beside optical.
+{
+    const PANEL = 260, GAP = 16, LABEL = 30, PAD = 24, SPLIT = 24;
+    const ids = ["amazon-box", "amazon-visual", "play-before", "play-after"];
+    const W = PAD * 2 + PANEL * 4 + GAP * 3 + SPLIT, H = PAD * 2 + LABEL + PANEL;
+    const comps = [];
+    let text = "";
+    for (const [i, id] of ids.entries()) {
+        const x = PAD + i * (PANEL + GAP) + (i >= 2 ? SPLIT : 0);
+        comps.push({ input: await sharp(join(OUT, F[id].src.replace(/^assets\//, ""))).resize(PANEL, PANEL).png().toBuffer(), left: x, top: PAD + LABEL });
+        text += `<text x="${x}" y="${PAD + 18}" font-family="Helvetica, Arial, sans-serif" font-size="15" font-weight="600" fill="#1a1a1a">${i % 2 ? "Optical" : "Geometric"}</text>`;
+    }
+    mkdirSync(join(ROOT, "media"), { recursive: true });
+    await sharp({ create: { width: W, height: H, channels: 4, background: "#fbfbfb" } })
+        .composite([{ input: Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}">${text}</svg>`), left: 0, top: 0 }, ...comps])
+        .png({ compressionLevel: 9, palette: true, quality: 90 }).toFile(join(ROOT, "media/preview.png"));
 }
-.legend { color: var(--muted); font-size: 13px; margin: 6px 0 0; }
-.legend .legend-box { vertical-align: middle; margin: 0 6px 0 0; }
-.label { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; font-size: 13px; font-weight: 600; color: var(--ink); margin: 0 0 8px; letter-spacing: 0.01em; }
-.label .score { font-weight: 500; color: var(--faint); font-variant-numeric: tabular-nums; }
-pre { font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; background: transparent; margin: 14px 0; padding: 0; white-space: pre; overflow-x: auto; color: var(--ink); }
-code { font: 13px ui-monospace, SFMono-Regular, Menlo, monospace; }
-table { border-collapse: collapse; margin: 16px 0; width: 100%; max-width: 640px; }
-th, td { text-align: left; padding: 6px 12px 6px 0; border-bottom: 1px solid var(--hair); vertical-align: top; font-variant-numeric: tabular-nums; }
-th { font-weight: 600; color: var(--muted); }
-td.num, th.num { text-align: right; padding-right: 0; padding-left: 12px; }
-/* A right-aligned column that is not the last one still needs a gutter. */
-td.num:not(:last-child), th.num:not(:last-child) { padding-right: 20px; }
-.scroll { overflow-x: auto; }
-ul { padding-left: 20px; max-width: 640px; }
-li { margin: 4px 0; }
-a { color: var(--link); text-decoration: none; }
-a:hover { text-decoration: underline; }
-</style>
-</head>
-<body>
-<main>
-<h1>Optical balance</h1>
-<p class="lede">Center and size by what the eye sees, not by the bounding box. This is how the method works, which constants it uses and why each was chosen, and the measured evidence for every claim. Each figure is real output of the script, and each number beside it is a measurement of that image.</p>
 
-<h2>The box is not the ink</h2>
-<p>Five marks, each centered by its bounding box, the way a layout system does it. All five sit on their plate's exact center, and the outlines fade in to show it. Two of them look centered: the circle and the diamond are symmetric, so their ink is where their box says it is. The other three are not, and each misses for a different reason.</p>
-<figure class="wide">${img(F["intro-test"], F.introTest.w, F.introTest.h, "Five marks centered by their bounding boxes")}</figure>
-
-<p>A triangle centered by its box reads ${Math.abs(Number(N.intro["step-box"].dy))}px below the plate center, because most of its ink sits low. The same triangle placed on its center of mass floats ${Math.abs(Number(N.intro["step-mass"].dy))}px high, because the eye reads where a shape ends and not only where its weight is. And a dark mark with a faint accent, centered on all its ink counted equally, still sits ${Math.abs(Number(N.intro["step-ink"].dy))}px high.</p>
-<div class="steps">
-${fig(F["step-box"], F.stepSize.w, F.stepSize.h, `A triangle centered by its box. Most of its ink sits low, so the shape reads ${Math.abs(Number(N.intro["step-box"].dy))}px below the plate center.`, "Triangle centered by its bounding box")}
-${fig(F["step-mass"], F.stepSize.w, F.stepSize.h, `The same triangle on its center of mass. Now it floats ${Math.abs(Number(N.intro["step-mass"].dy))}px high: the eye reads where a shape ends, not only where its weight is.`, "Triangle centered on its center of mass")}
-${fig(F["step-ink"], F.stepSize.w, F.stepSize.h, `A dark mark with a faint accent, centered on all its ink counted equally. The dark part still sits ${Math.abs(Number(N.intro["step-ink"].dy))}px high; the accent should hang off it.`, "Two-tone mark centered on its plain centroid")}
-</div>
-
-<p>The answer follows from the three. The visual center is the midpoint of the extent center and the mass centroid, where mass weights each pixel by the square of its contrast against the background it sits on. The skill measures it, applies the offset where placement is decided, and re-measures the result. It never nudges by eye.</p>
-
-<p class="legend"><svg class="legend-box" width="20" height="12" viewBox="0 0 20 12" aria-hidden="true"><rect x="0.5" y="0.5" width="19" height="11" fill="none" stroke="#a6a6a6" stroke-dasharray="3 2"/></svg>the element's bounding box, what the code centered, with the space around it measured in the figure's own pixels</p>
-<p class="legend">Above each figure, <strong>Geometric</strong> is what centering the bounding box gives and <strong>Optical</strong> is what the eye reads as centered. <strong>Off center</strong> is how far the element's visual center sits from its container's center, as a share of the container's shorter side; a corrected figure lands within a pixel or two, which is as close as whole-pixel placement gets. Each figure cycles on its own between the plain render and its measurements, so nothing has to be switched on to read it.</p>
-<h2>Centering</h2>
-
-<h3>A two-tone mark on a plate</h3>
-<p>The Amazon wordmark is black; its smile is orange. On a white plate the smile has a third of the wordmark's contrast, so the eye reads the letters and lets the smile hang below. Centering the bounding box puts the letters too high. Centering the alpha centroid counts the smile at full strength and still leaves them ${Math.abs(N.amazon.result.alpha.dy)}px high on this tile. Weighting each pixel by the square of its contrast, and taking the extent from the letters alone, lands the letters on the center line.</p>
-<div class="pair">
-${fig(F["amazon-box"], PAIR_W, PAIR_W, `Box centered. The ink's visual center sits ${Math.abs(N.amazon.result.box.dy)}px above the tile center.`, "Amazon wordmark box-centered on a white tile", "tile")}
-${fig(F["amazon-visual"], PAIR_W, PAIR_W, `Visual center on the tile center, ${Math.abs(N.amazon.result.visual.dy)}px off. The letters sit on the line, the smile hangs below.`, "Amazon wordmark optically centered", "tile")}
-</div>
-<p>Nineteen percent down is the "the logo should sit a bit lower" instinct with a number attached. The fix lives in the tile bake, so every future asset gets it for free.</p>
-
-<h3>The same mark in dark mode</h3>
-<p>The background is an input, not a detail. On a white plate the smile has a contrast of ${N.amazonDark.smileContrastLight} and is discounted as an accent. On a black plate the inverted mark's smile has a contrast of ${N.amazonDark.smileContrastDark}, above the accent threshold of ${ACCENT_CONTRAST}, so it counts as part of the mark and the letters move down only ${N.amazonDark.dyPct}% instead of ${N.amazon.dyPct}%. One logo, two themes, two offsets: bake a tile per theme, or store the offset per theme in the component.</p>
-<div class="pair">
-${fig(F["amazon-dark-box"], PAIR_W, PAIR_W, `Box centered on black. The visual center sits ${Math.abs(Number(N.amazonDark.boxDy))}px above the tile center.`, "Inverted Amazon wordmark box-centered on a black tile", "tile")}
-${fig(F["amazon-dark-visual"], PAIR_W, PAIR_W, `Visual center on the tile center, ${Math.abs(Number(N.amazonDark.visualDy))}px off. The smile counts, so the letters sit higher than on white.`, "Inverted Amazon wordmark optically centered on a black tile", "tile")}
-</div>
-
-<h3>When not to discount</h3>
-<p>The discount exists for accents. PayPal's lighter blue is not an accent: it is ${N.paypal.accentShare}% of the mark, a second tone the eye reads together with the first. Discounting it would move the visual center ${Math.abs(Number(N.paypal.massShiftPct))}% of the width toward the darker monogram and push the wordmark off its plate. The skill keeps the discount only while faint ink stays under a third of the mark (${Math.round(ACCENT_MAX_SHARE * 100)}%, below contrast ${ACCENT_CONTRAST}); above that, all ink is the mark, and the balanced plate moves the wordmark only ${Math.abs(Number(N.paypal.shiftPct))}% of its width toward the heavier monogram. Shown on a wide plate: a wordmark fills a square tile's width, so a horizontal correction has room only on a plate wider than the mark.</p>
-<div class="pair">
-${fig(F["paypal-box"], PAIR_W, Math.round(PAIR_W / 2), `Box centered on a wide plate. The visual center sits ${Math.abs(Number(N.paypal.plainDx))}px left of the plate center: the monogram is heavier than the letters.`, "PayPal wordmark box-centered on a white plate", "tile")}
-${fig(F["paypal-visual"], PAIR_W, Math.round(PAIR_W / 2), `Moved ${Math.abs(Number(N.paypal.dx))}px right. Visual center ${Math.abs(Number(N.paypal.keptDx))}px from the plate center. Both blues count; the guard kept the discount off.`, "PayPal wordmark optically centered on a white plate", "tile")}
-</div>
-
-<h3>Icons in round buttons</h3>
-<p>A play triangle has two thirds of its area in its left half. Box-centered, it looks pushed left, so designers nudge it right and argue about how much. Placing its center of mass on the button center is too much: the eye also sees where the triangle ends. Halfway between the two, the answer is ${N.icons.play.dx}px for a 24px icon, ${N.icons.play.dxPctIcon}% of the icon. An arrow is the mirror case: its head is heavier than its shaft, so it moves ${Math.abs(Number(N.icons.arrow.dx))}px left.</p>
-<div class="pair">
-${fig(F["play-before"], PAIR_W, PAIR_W, `Play, box centered. Visual center ${Math.abs(Number(N.icons.play.beforeOff))}px left of the button center.`, "Play icon box-centered in a round button")}
-${fig(F["play-after"], PAIR_W, PAIR_W, `Play, moved ${N.icons.play.dx}px right. Visual center ${Math.abs(Number(N.icons.play.afterOff))}px from the button center.`, "Play icon optically centered")}
-</div>
-<div class="pair">
-${fig(F["arrow-before"], PAIR_W, PAIR_W, `Arrow, box centered. Visual center ${Math.abs(Number(N.icons.arrow.beforeOff))}px right of the button center.`, "Arrow icon box-centered in a round button")}
-${fig(F["arrow-after"], PAIR_W, PAIR_W, `Arrow, moved ${Math.abs(Number(N.icons.arrow.dx))}px left. Visual center ${Math.abs(Number(N.icons.arrow.afterOff))}px from the button center.`, "Arrow icon optically centered")}
-</div>
-<p class="muted">Enlarged; the button is 64px and the icon 24px.</p>
-<p>Put the offset in the icon component, keyed by icon name, and every button that renders a play icon is fixed. The percentages carry to any render size.</p>
-
-<h3>A caps label in a pill</h3>
-<p>Line-height centering centers the em box, which has room for descenders. Capitals have none, so they ride high in a pill or a tag. Here, at ${N.pill.font}px, the label sits ${Math.abs(Number(N.pill.dy))}px above the visual center, ${Math.abs(Number(N.pill.dyEm))}em. Letter-spacing adds the same gap after the last letter as between letters, so the text also sits ${Math.abs(Number(N.pill.dx))}px left of center. Both are measured at once.</p>
-<div class="pair">
-${fig(F["pill-before"], PAIR_W, Math.round(PAIR_W * 32 / 104), `Centered by the em box. The capitals ride ${Math.abs(Number(N.pill.dy))}px high and ${Math.abs(Number(N.pill.dx))}px left.`, "Caps label centered by em box in a pill")}
-${fig(F["pill-after"], PAIR_W, Math.round(PAIR_W * 32 / 104), `Moved ${Math.abs(Number(N.pill.dy))}px down and ${Math.abs(Number(N.pill.dx))}px right. Re-measured: ${Math.abs(Number(N.pill.afterDy))}px from center.`, "Caps label optically centered in a pill")}
-</div>
-<p class="muted">Enlarged; the pill is 32px tall.</p>
-<p>Express the correction in em in the tag component, and it holds at every font size. Measure once per typeface: the metric that causes it belongs to the font, not the label.</p>
-
-<h3>Initials in an avatar disc</h3>
-<p>When there is no logo, the product draws initials on a colored disc. A letter centered by its em box and its advance width is not visually centered: J leans right and hangs low, L is all stem and foot on the left, A is bottom heavy with a thin apex. At ${N.initials.font}px semibold the corrections are mostly vertical and run to about ${Math.max(...N.initials.per.map((r) => Math.abs(Number(r.dyEm)))).toFixed(2)}em; the figure carries each letter's own. Each letter needs its own offset, so measure the glyph set once per typeface and store the offsets by letter.</p>
-<div class="pair stack">
-${fig(F["initials-before"], PAIR_W * 2, Math.round((PAIR_W * 2) * F.initialsSize.h / F.initialsSize.w), `Em box and advance width centered: the letters ride high and J and L lean.`, "Initials centered by em box in colored discs")}
-${fig(F["initials-after"], PAIR_W * 2, Math.round((PAIR_W * 2) * F.initialsSize.h / F.initialsSize.w), `Each letter moved by its own offset.`, "Initials optically centered in colored discs")}
-</div>
-
-<h3>Vercel's mark on a tile</h3>
-<p>A real mark, measured as it ships and then corrected. Vercel's icon is a white triangle on a black disc, so the container the correction has to satisfy is the disc: the disc is centered on its tile geometrically, and the triangle is placed inside the disc. A triangle keeps its weight along the base, so its box center and its mass centroid disagree by ${N.vercel.gap}px on a ${N.vercel.mark} mark, and the correction is ${Math.abs(Number(N.vercel.dy))}px upward, ${N.vercel.dyPct}% of the height. Box centered in a ${N.vercel.disc}px disc the triangle reads ${N.vercel.beforePct}% off its center. Corrected it reads ${N.vercel.afterPct}%.</p>
-<div class="pair">
-${fig(F["vercel-box"], PAIR_W, PAIR_W, `Box centered in the disc: the triangle's visual center sits ${N.vercel.beforePx}px low, so the mark hangs toward the bottom of the circle.`, "Vercel's triangle box-centered in a black disc", "tile")}
-${fig(F["vercel-visual"], PAIR_W, PAIR_W, `Moved up. Visual center ${N.vercel.afterPx}px from the disc center.`, "Vercel's triangle optically centered in a black disc", "tile")}
-</div>
-<p>The disc is worth noticing on its own. It is a self-backgrounded shape, symmetric on both axes, so it needs no correction and gets none: the skill's decision points say to skip an element like it. Only what sits inside it is measured. Nothing here is specific to Vercel either. Any mark whose weight sits away from its box center behaves the same way, and a triangle is simply the clearest case: an app icon, a favicon and an avatar all place it in a circle or a square, and all of them inherit the same error until the placement rule is fixed rather than the instance.</p>
-
-<h2>Side by side</h2>
-
-<h3>An icon beside a label</h3>
-<p>A button's content is an icon and a word. Equal padding centers the content box, but the word is heavier than the icon, so the eye sees the content sitting toward the text. The measured fix is asymmetric padding: ${N.button.padIcon}px on the icon side and ${N.button.padText}px on the text side instead of ${N.button.pad}px each, a ${Math.abs(Number(N.button.dx))}px move. This is the case designers describe as "slightly less padding on the icon side"; here it has a number.</p>
-<div class="pair">
-${fig(F["button-before"], PAIR_W, Math.round(PAIR_W * 48 / 140), `Equal padding, ${N.button.pad}px each side. The content's visual center sits ${Math.abs(Number(N.button.beforeOff))}px right of the button center.`, "Button with icon and label, content box centered")}
-${fig(F["button-after"], PAIR_W, Math.round(PAIR_W * 48 / 140), `Padding ${N.button.padIcon}px left, ${N.button.padText}px right. Visual center ${Math.abs(Number(N.button.afterOff))}px from the button center.`, "Button with icon and label, content optically centered")}
-</div>
-<p>Measure once per icon-and-label pattern and put the asymmetry in the button component. Krehel's rule, fix it in the SVG or the component and never in the instance, applies unchanged.</p>
-
-<h3>A symbol beside a wordmark</h3>
-<p>A logo lockup is the same problem at brand scale. The wordmark has ascenders, so its box center sits above the lowercase mass; align the symbol to that box center and it rides high. Slack's own lockup does not: its symbol sits within ${N.lockup.brands[0].visual}% of the word's height from the word's visual center, while box centers would be ${N.lockup.brands[0].box}% apart. Rebuilt here from the brand's parts at the brand's gap: Default aligns the two boxes, Balanced aligns the two visual centers, and the second is the one the brand shipped.</p>
-<div class="pair">
-${fig(F["lockup-before"], PAIR_W, Math.round(PAIR_W / 2), `Box centers aligned. The symbol's visual center sits ${Math.abs(Number(N.lockup.defaultOff))}px above the word's, ${Math.abs(Number(N.lockup.defaultOffPct))}% of the word's height.`, "Slack symbol box-aligned to the wordmark", "tile")}
-${fig(F["lockup-after"], PAIR_W, Math.round(PAIR_W / 2), `Visual centers aligned, ${Math.abs(Number(N.lockup.afterOff))}px apart. The symbol sits on the lowercase mass, where Slack put it.`, "Slack symbol visually aligned to the wordmark", "tile")}
-</div>
-<p>Slack and Airbnb sit their symbols on the word's visual center: Slack within ${N.lockup.brands[0].visual}%, Airbnb within ${Math.abs(Number(N.lockup.brands[2].cross))}% using the symbol's box, because the Bélo's mass sits low in its own box. Shopify follows another rule: the bag is ${N.lockup.brands[1].symShare}% of the word's height and its base sits near the descender line, so neither center matches, and that is a choice, not an error. When a brand has no rule yet, align visual centers and store the offset in the lockup asset, not in each placement.</p>
-
-<h2>Sizing</h2>
-
-<h3>A logo strip</h3>
-<p>Give nine logos the same height and the strip is uneven: a solid mark reads huge, all-caps wordmarks shout, lowercase wordmarks look bigger than mixed marks. The size rule shrinks each logo to the visual size of the lightest one, measured across the whole set so wrapping the row cannot change a logo's scale. No logo has to grow past its cell, and every logo is placed by its visual center, so the Amazon letters sit on the line while the smile hangs below. Both strips are drawn on one canvas width, because the page shows every figure at the same width and a wider canvas would shrink its contents against the other.</p>
-<figure class="wide">${label(F["strip-before"])}${img(F["strip-before"], F.stripSize.width, F.stripSize.height, "Nine logos on two rows at equal height, box centered")}</figure>
-<figure class="wide">${label(F["strip-after"])}${img(F["strip-after"], F.stripSize.width, F.stripSize.height, "Nine logos on two rows at equal visual size, visually centered")}</figure>
-<div class="scroll"><table>
-<tr><th>logo</th><th class="num">equal height</th><th class="num">visual size</th><th class="num">scale</th><th class="num">rendered</th></tr>
-${N.strip.map((r) => `<tr><td>${r.name}</td><td class="num">${r.equal}</td><td class="num">${r.size}</td><td class="num">×${r.correction}</td><td class="num">${r.rendered}</td></tr>`).join("\n")}
-</table></div>
-<p>The rule raises the size difference to a half power rather than equalizing ink area outright, because the eye reads extent as well as mass and full equalization overshoots. That default was chosen by rendering seven variants of this strip side by side: <a href="${F["sizing-experiment"]}">the experiment sheet</a> shows equal height, then alpha, linear-contrast and squared-contrast ink area at powers 1 and 0.5.</p>
-<p class="muted">Sizes in px at a 40px row. Visual size is the square root of the contrast-weighted ink area at equal height; the target is the smallest, ${N.stripTarget}px. Set the rendered heights as the strip's per-logo sizes, or pass the scale factors to the layout.</p>
-
-<h2>Framing</h2>
-
-<h3>Cropping a portrait for an avatar</h3>
-<p>An uploaded photo is rarely framed for a circle: a wide frame, the person off to one side, and a center crop shows mostly wall. The same measurement frames it. The subject is whatever contrasts with the backdrop, weighted by contrast squared and with no accent guard, because a photograph is a continuous field and the eye settles on its brightest, highest-contrast region. The crop square is placed around that visual center, as far as the image has room. For a person that center sits at the chest and collar, so the face lands in the upper part of the circle, where a portrait wants it.</p>
-<div class="pair">
-${fig(F["frame-box"], PAIR_W, PAIR_W, `Center crop at ${N.frame.zoom}% of the short side: backdrop and half a figure. The visual center sits ${N.frame.beforeOffPct}% of the avatar off its center.`, "Portrait center-cropped into a round avatar")}
-${fig(F["frame-visual"], PAIR_W, PAIR_W, `Crop moved ${N.frame.moved} in the source. Visual center ${N.frame.afterOffPct}% off the avatar center.`, "Portrait cropped around its visual center into a round avatar")}
-</div>
-<p>This works for a plain backdrop: casual portraits against a wall, product shots on white, scans. It centers a subject, not a face: a studio portrait that is already composed tightly gains nothing, and a busy scene needs a face or subject detector, with the rule placing the crop around what the detector returns. The source here is Vermeer's <em>Girl with a Pearl Earring</em> (public domain), extended by ${N.frame.extend}px on the left and ${N.frame.extendRight}px on the right with its own backdrop to stand in for a wide upload.</p>
-
-<h2>The method</h2>
-<p>Three stages, in this order: measure the element against the background it renders on, apply the measured offset where placement is decided, then re-measure the rendered result. The third stage is not a formality. Compositing changes an element's own measurement, so a correction that is right in the source can still land wrong in the output.</p>
-
-<h3>What is measured</h3>
-<p>One pass over the pixels of a raster. Vector input is rasterized first, at a ${DEFAULT_RASTER_EDGE}px longest edge, so an SVG measures exactly like the bitmap a browser would paint from it. Each pixel contributes two weights, because position and size do not want the same one.</p>
-<pre>luma      = 0.299 R + 0.587 G + 0.114 B        Rec. 601
-contrast  = |luma − background luma| / 255     0 to 1
-                                               at or below ${BACKGROUND_CONTRAST} the pixel IS the background
-mass weight    w = alpha × contrast²           position
-size weight    s = alpha × contrast            size</pre>
-<div class="steps">
-${fig(F["weight-mark"], F.methodPanel.w, F.methodPanel.h, `The mark as it renders on the plate.`, "The Amazon wordmark on a white plate")}
-${fig(F["weight-alpha"], F.methodPanel.w, F.methodPanel.h, `Every visible pixel at full strength: the smile weighs as much as the letters.`, "Weight map counting every visible pixel equally")}
-${fig(F["weight-contrast"], F.methodPanel.w, F.methodPanel.h, `Weighted by contrast squared: the letters keep ${N.method.letterWeight} and the smile drops to ${N.method.smileWeight}.`, "Weight map weighted by contrast squared")}
-</div>
-<p>The middle panel is the previous method and the right one is this one. Both are the same pixels; only the weight differs. Squaring the contrast for position is how ink competes for the eye: at half contrast a pixel earns a quarter of the weight, so a faint accent hangs off the dominant tone instead of dragging it. Size uses linear contrast, because the squared form exaggerates colour differences into size differences, and a coral wordmark would read a third smaller than a black one of the same shape.</p>
-<p>Skipping near-background pixels is what lets an opaque export measure like a transparent one. Without it, a baked-in white plate pulls every centroid toward the box center.</p>
-
-<h3>Where the eye sees the center</h3>
-<p>Two readings, then their midpoint. Mass is where the weight is; extent is where the shape ends. Each alone is wrong, and wrong in opposite directions.</p>
-<pre>alpha centroid   Σ(alpha · p) / Σ alpha
-mass centroid    Σ(w · p) / Σ w
-accent share     Σ alpha where contrast &lt; ${ACCENT_CONTRAST}  ÷  Σ alpha
-mass             accent share ≤ ${ACCENT_SHARE_LABEL} ? mass centroid : alpha centroid
-extent           center of the ink box, counting pixels with alpha ≥ ${EXTENT_ALPHA}
-                 (the dominant tone alone, while the discount applies)
-visual center    extent + ${CENTER_BLEND} × (mass − extent)
-offset           container center − visual center     positive y moves down</pre>
-<figure class="wide">${img(F["method-centers"], F.methodDiagram.w, F.methodDiagram.h, "The extent center, the mass centroid and the visual center on one mark")}</figure>
-<p>Vercel's triangle, because its two readings disagree by ${N.method.gapPct}% of its height. The dashed box is the extent and its center sits at y ${N.method.extentY}; the mass centroid sits at y ${N.method.massY}, low, where a triangle keeps its weight. The visual center is the midpoint at y ${N.method.visualY}, and placement moves the element until that point lands on the container's center. On the Amazon mark above the same two readings agree within a few pixels, which is why this diagram uses a triangle.</p>
-<p>The accent guard is the conditional on the mass line. A discount exists for an accent, not for a second tone: above a third of the mark, faint ink is something the eye reads together with the rest, and discounting it swings the whole mark off center. Two fallbacks close the chain. With no weight at all the alpha centroid stands in, and with no visible ink the box center is kept.</p>
-<p>Extent takes only pixels at least half opaque. Resampling leaves nearly transparent fringe pixels whose colour is noise once unpremultiplied, and a box that counted them would stretch to the fringe of an accent that was just discounted.</p>
-
-<h3>How large it reads</h3>
-<p>Ink size is a length, so it scales linearly with the element and two elements can be compared directly. Perceived size adds the extent reading, for the same reason the center does.</p>
-<pre>ink size         √ Σ s
-perceived size   √( ink size × ink height )
-baseline         min( row height ÷ ink height , max width ÷ ink width )
-correction       ( target size ÷ baseline size ) ^ 0.5</pre>
-<p>Every element in a set is first fitted to the row, then compared against a target: the smallest baseline size, so nothing has to grow past its cell, or a named element when the set has a keyline to anchor on. The half power is the same weighting as the center's midpoint. Equalizing ink area outright overshoots, because it ignores that the eye reads extent too.</p>
-
-<h3>The constants</h3>
-<p>Six numbers decide everything above. None was picked by taste; each is listed with the measurement that set it.</p>
-<div class="scroll"><table>
-<tr><th>constant</th><th class="num">value</th><th>decides</th><th>set by</th></tr>
-<tr><td>background contrast</td><td class="num">${BACKGROUND_CONTRAST}</td><td>what is background rather than ink</td><td>low enough that an opaque export measures like a transparent one</td></tr>
-<tr><td>extent alpha</td><td class="num">${EXTENT_ALPHA}</td><td>which pixels define extent</td><td>half opaque, so a resampling fringe cannot stretch the box</td></tr>
-<tr><td>accent contrast</td><td class="num">${ACCENT_CONTRAST}</td><td>what counts as faint ink</td><td>the Amazon smile measures ${N.amazonDark.smileContrastLight} on white and ${N.amazonDark.smileContrastDark} inverted on black, so the threshold separates the two</td></tr>
-<tr><td>accent max share</td><td class="num">${ACCENT_SHARE_LABEL}</td><td>when a second tone stops being an accent</td><td>PayPal's lighter blue is ${N.paypal.accentShare}% of its mark and must not be discounted</td></tr>
-<tr><td>center blend</td><td class="num">${CENTER_BLEND}</td><td>how far from extent toward mass</td><td>box centering and mass centering miss a triangle by ${Math.abs(Number(N.intro["step-box"].dy))}px and ${Math.abs(Number(N.intro["step-mass"].dy))}px in opposite directions</td></tr>
-<tr><td>size power</td><td class="num">0.5</td><td>how hard a set is equalized</td><td>chosen from seven variants rendered side by side, in the experiment sheet linked from the logo strip above</td></tr>
-</table></div>
-
-<h3>The procedure</h3>
-<ol>
-<li>Confirm the case wants a correction. A disc badge, a full-bleed image and anything else that carries its own background has no placement to fix.</li>
-<li>Measure the element against the luminance of the surface it renders on. The background is an input, not a detail: the same mark on white and on black gives different answers.</li>
-<li>Apply the offset where placement is decided, which is the asset bake, the shared component, the icon set or the layout, and never the instance.</li>
-<li>Re-measure the rendered result and correct the residual until it stops moving.</li>
-<li>Accept on a tolerance rather than a zero, and record what the output measured.</li>
-</ol>
-
-<h2>Why zero is not reachable</h2>
-<p>Every corrected figure above lands within a pixel or two of its container's center rather than exactly on it. Three things account for the gap, and only one of them is worth fixing.</p>
-<p><strong>Whole-pixel placement.</strong> An element is composited at integer coordinates, so up to half a pixel of the correction is rounded away. On a ${N.amazonClamp.tile}px tile one pixel is ${N.amazonClamp.onePx}% of the width, so a figure reading 0.1% is sub-pixel and nothing a reader can see.</p>
-<p><strong>Edges take the plate's colour.</strong> An anti-aliased edge pixel is part artwork and part background, so compositing changes its contrast and moves the baked result's own visual center slightly off where the artwork measured alone. This part is correctable, by re-measuring the finished figure and shifting by the residual until it stops moving. Every path on this page does it, which took the PayPal plate from ${N.paypal.onePassPx}px to ${N.paypal.convergedPx}px.</p>
-<p><strong>A clamp.</strong> The correction may spend the artwork's slack inside its safe area and no more. The Amazon wordmark is ${N.amazonClamp.artWidth}px wide in a ${N.amazonClamp.artBox}px art box, so horizontally it is pinned and its ${N.amazonClamp.dx}px residual has nowhere to go. Vertically, where it has room, it converges to ${N.amazonClamp.dy}px.</p>
-<p>So accept a correction on a tolerance rather than on a zero. Within about 1% of the container is the gate this skill uses, and a residual under one pixel is below what the grid can express.</p>
-
-<h2>Verification</h2>
-<p>A correction is done when the output measures right, not when the arithmetic looks right. Four gates, in the order they catch things.</p>
-<ul>
-<li><strong>Re-measure the rendered result.</strong> Measure the baked asset or a settled screenshot against its real background, not the source. Verifying the source hides clamping, rounding and any interference from the layer that draws it.</li>
-<li><strong>Converge rather than assume.</strong> One pass lands close, because compositing and a round mask both change the element's own measurement. Every path here re-measures its own output and shifts until the placement stops moving.</li>
-<li><strong>Check a set on perceived size.</strong> Re-measuring an equalized set is the only proof the sizes match; the corrections that produced it prove nothing on their own.</li>
-<li><strong>Regenerate.</strong> One command rebuilds every figure and every number on this page from the source artwork. A number that cannot be regenerated is not evidence, and prose is where stale numbers hide.</li>
-</ul>
-
-<h2>Apply it where placement is decided</h2>
-<p>The offset is a translation of the element, positive y down. Put it in the rule, never in the instance, so every future asset inherits it.</p>
-<pre>/* CSS: a component that knows its own optical offset */
-.icon-play { transform: translateX(${N.icons.play.dxPctIcon}%); }
-
-/* SVG: bake the shift into the symbol */
-&lt;g transform="translate(${N.icons.play.dx} 0)"&gt;…&lt;/g&gt;
-
-/* Asset bake (sharp): place by the measured visual center */
-left = round(tile / 2 - visual.x); top = round(tile / 2 - visual.y);
-
-/* Figma or Paper: nudge the layer by the px value at the measured size,
-   or type the % into a constraint. Scale px with the render size; % is free. */</pre>
-
-<h2>Run it</h2>
-<pre>cd optical-balance/scripts &amp;&amp; npm install        # once: sharp
-
-node optical.mjs measure  logo.svg --bg 255           # where the eye sees the center
-node optical.mjs measure  logo.png --bg "#141414"     # against the real background
-node optical.mjs equalize a.svg b.svg c.svg --height 40   # equal visual size at a 40px row
-node optical.mjs tile     logo.svg --out tile.png     # bake an optically centered plate
-node optical.mjs strip    a.svg b.svg c.svg --out strip.png   # render the equalized row
-node optical.mjs frame    photo.jpg --out avatar.png --bg "#0a0a08" --tolerance 0.15 --zoom 0.72 --circle   # crop around the visual center</pre>
-<p>Measure accepts PNG, JPEG, WebP and SVG. An opaque export is fine when it is measured against the background it was exported on: pixels within 2% of that background count as background, not ink. Verify on the output, not the source: measure the baked asset or a cropped screenshot of the settled UI, and accept when the visual center lands within about 1% of the container. For a set, measure each rendered logo and compare the <code>perceived size</code> line, the geometric mean of visual size and ink height that the size rule holds constant; the nine logos above re-measure at ${N.stripVerify.min} to ${N.stripVerify.max}px.</p>
-
-<h2>Related rules</h2>
-<p>Designers already apply these corrections by eye. The skill measures them.</p>
-<ul>
-<li><strong>Align optically, not geometrically.</strong> Jakub Krehel's polish list gives the icon side of a button slightly less padding and fixes icon shapes in the SVG itself, so no margin is needed. Measure the button's content (icon and label together) against its box and the asymmetric padding is a number. <a href="https://jakub.kr/writing/details-that-make-interfaces-feel-better">jakub.kr</a></li>
-<li><strong>Optical centre.</strong> "A play button centred by coordinates looks left-heavy. Nudge it right and it sits." The play button above is that nudge, measured. <a href="http://index.how/to/articulate">index.how</a></li>
-<li><strong>Weight is surface times contrast.</strong> Refactoring UI: bold text feels emphasized because it covers more surface; icons are heavy, so soften their colour, or thicken thin strokes while keeping the colour soft. That product is the sizing weight used here.</li>
-<li><strong>Dots larger than the stroke.</strong> Helena Zhang's icon series: a dot drawn at the stroke weight looks too small; draw it slightly larger. The same class of correction at the glyph level. <a href="https://minoraxis.medium.com/advanced-icon-design-dots-590cf96bf279">minoraxis</a></li>
-</ul>
-
-<h2>Failure modes</h2>
-<ul>
-<li><strong>Wrong background.</strong> The same Amazon mark measured against black instead of white loses its letters to the background; what remains is edge pixels and the smile, ${N.amazonWrongBg.accentShare}% of it faint, and the offset comes out as ${N.amazonWrongBg.dyPct}% instead of ${N.amazon.dyPct}%. A confident, wrong number. Always pass the luminance of the surface the element renders on.</li>
-<li><strong>Alpha-only weighting</strong> under-corrects two-tone marks. It counts faint ink at full strength; this was the original Amazon bug.</li>
-<li><strong>Discounting a second tone.</strong> Above a third of the mark, faint ink is a tone, not an accent. The guard is the difference between Amazon and PayPal above.</li>
-<li><strong>Centering on mass alone.</strong> A solid triangle placed on its centroid floats a sixth of its height above its neighbours; the eye reads extent too. The visual center is the midpoint of extent and mass, and the same half weighting drives the size rule.</li>
-<li><strong>Equalizing ink area alone</strong> shrinks wide wordmarks until they read smaller than a compact solid mark of the same ink. Keep the half power unless a measured reference says otherwise.</li>
-<li><strong>Verifying the source</strong> instead of the output hides clamping, rounding and CSS interference.</li>
-<li><strong>Hand-nudged instances</strong> are unrepeatable, and every new asset re-imports the bug. Fix the rule.</li>
-<li><strong>Self-backgrounded elements</strong> (a disc mark, a full-bleed image) have nothing to correct. Skip them.</li>
-<li><strong>Busy photographs.</strong> Framing reads the subject as whatever contrasts with a plain backdrop. A scene with a patterned background has no backdrop to contrast with, and the visual center lands on the busiest region. Use a face or subject detector there and let the rule place the crop around its result.</li>
-<li><strong>Hue salience is not modeled.</strong> Contrast here is luminance contrast. A saturated red and a grey of the same luminance weigh the same, and the red reads heavier; equal lightness does not make hues equally salient. Treat the size of a strongly coloured mark as a starting point and confirm it in context.</li>
-</ul>
-
-</main>
-</body>
-</html>
-`;
-// One deliverable: the figures are embedded, so the page renders wherever it is
-// opened or sent. docs/assets keeps the PNGs as inspectable build output.
-const inline = (page) => page.replace(/(src|href)="assets\/([^"]+)"/g, (_, attr, name) => `${attr}="data:image/png;base64,${readFileSync(join(OUT, name)).toString("base64")}"`);
-writeFileSync(join(ROOT, "docs/index.html"), inline(html));
-// The candidate rewrite reads the same figures and numbers, so the two pages differ in prose only.
+// The GitHub Pages workflow sets GITHUB_REPOSITORY, which turns on the repository links.
+const repo = process.env.GITHUB_REPOSITORY || process.env.OPTICAL_REPO || "";
 const demo = await renderDemo();
-writeFileSync(join(ROOT, "docs/align-demo.html"), demo.html);
-writeFileSync(join(ROOT, "docs/index-v2.html"), inline(renderV2({ F, N, img, label, labelOf, offCenterOf, demo, PAIR_W, ACCENT, LINK, GUIDE, ACCENT_SHARE_LABEL })));
-console.log(`wrote docs/index.html, docs/index-v2.html and docs/align-demo.html (self-contained) and ${Object.keys(figures).length - 1} figures under docs/assets`);
+writeFileSync(join(ROOT, "docs/index.html"), finish(renderLanding({ F, N, label, webp, repo, ACCENT, LINK })));
+writeFileSync(join(ROOT, "docs/write-up.html"), finish(renderWriteUp({ F, N, img, label, labelOf, offCenterOf, demo, PAIR_W, ACCENT, LINK, GUIDE, ACCENT_SHARE_LABEL })));
+writeFileSync(join(ROOT, "docs/demo.html"), demo.html);
+console.log(`wrote docs/index.html, docs/write-up.html and docs/demo.html${INLINE ? " (self-contained)" : ""}, and ${Object.keys(figures).length - 1} figures under docs/assets`);
 console.log(JSON.stringify(numbers, null, 1));

@@ -6,8 +6,9 @@
  * than written as text, so a rebuild cannot leave a sentence that the figures contradict.
  */
 import { ACCENT_CONTRAST, BACKGROUND_CONTRAST, CENTER_BLEND, DEFAULT_RASTER_EDGE, EXTENT_ALPHA } from "./lib.mjs";
+import { motionFigure, MOTION_CSS } from "./page-parts.mjs";
 
-export default function renderV2({ F, N, img, label, labelOf, offCenterOf, demo, PAIR_W, ACCENT, LINK, GUIDE, ACCENT_SHARE_LABEL }) {
+export default function renderWriteUp({ F, N, img, label, labelOf, offCenterOf, demo, PAIR_W, ACCENT, LINK, GUIDE, ACCENT_SHARE_LABEL }) {
     const abs = (v) => Math.abs(Number(v));
     const pct1 = (v) => Number(v).toFixed(1);
     /** Distance from the visual center to the container center on both axes, the value each figure's label scores. */
@@ -26,14 +27,8 @@ export default function renderV2({ F, N, img, label, labelOf, offCenterOf, demo,
     const smallest = brand(bySize[bySize.length - 1].name);
     const list = (names) => `${names.slice(0, -1).join(", ")}, and ${names[names.length - 1]}`;
 
-    /**
-     * The opening row: empty plates with each shape as its own layer. Every position is a
-     * percentage of the row or of the layer, so the figure scales with the page, and the move
-     * is a percentage of the layer's own size because CSS translate resolves against it.
-     */
     const M = F.introMotion;
-    const pctOf = (v, total) => `${((v / total) * 100).toFixed(4)}%`;
-    const motion = `<span class="fig motion" style="aspect-ratio: ${M.rowW} / ${M.rowH}"><img src="${M.src}" width="${M.w}" height="${M.h}" alt="A triangle, the Amazon wordmark, and a play icon that move from geometric centering to optical centering on their tiles">${M.layers.map((l) => `<span class="motion-el" style="left: ${pctOf(l.left, M.rowW)}; top: ${pctOf(l.top, M.rowH)}; width: ${pctOf(l.w, M.rowW)}; height: ${pctOf(l.h, M.rowH)}; --mx: ${pctOf(l.moveX, l.w)}; --my: ${pctOf(l.moveY, l.h)}"><img src="${l.src}" alt=""><svg class="motion-box" style="left: ${pctOf(l.ink.x, l.w)}; top: ${pctOf(l.ink.y, l.h)}; width: ${pctOf(l.ink.w, l.w)}; height: ${pctOf(l.ink.h, l.h)}" viewBox="0 0 ${l.ink.w} ${l.ink.h}" preserveAspectRatio="none" aria-hidden="true"><rect width="${l.ink.w}" height="${l.ink.h}"/></svg></span>`).join("")}</span>`;
+    const motion = motionFigure(M);
     const moves = Object.fromEntries(N.introMotion.map((r) => [r.id, r]));
     const direction = ({ moveX, moveY }) => {
         const x = Number(moveX), y = Number(moveY);
@@ -109,20 +104,9 @@ figure.hero { margin: 48px 0 32px; }
     64%, 100% { opacity: 0; filter: blur(10px); }
 }
 .overlay { animation: marker-cycle 7s cubic-bezier(0.4, 0, 0.2, 1) infinite; }
-/* The opening row: each shape holds at geometric centering, moves to its optical position,
-   holds there, and returns. The dashed box is part of the layer, so it stays visible and moves with the shape. */
-.motion-el { position: absolute; display: block; animation: settle 6s cubic-bezier(0.65, 0, 0.35, 1) infinite; }
-.motion-el img { display: block; width: 100%; height: 100%; }
-.motion-box { position: absolute; overflow: visible; }
-.motion-box rect { fill: none; stroke: #a6a6a6; stroke-width: 1px; stroke-dasharray: 4 3; vector-effect: non-scaling-stroke; }
-@keyframes settle {
-    0%, 25% { transform: translate(0, 0); }
-    45%, 85% { transform: translate(var(--mx), var(--my)); }
-    100% { transform: translate(0, 0); }
-}
+${MOTION_CSS}
 @media (prefers-reduced-motion: reduce) {
     .overlay { animation: none; opacity: 1; filter: none; }
-    .motion-el { animation: none; transform: translate(var(--mx), var(--my)); }
 }
 .legend-box { vertical-align: middle; margin: 0 6px 0 0; }
 .demo { display: block; width: 100%; height: 640px; border: 0; outline: 1px solid var(--hair); background: #f5f5f5; }
@@ -146,6 +130,7 @@ a:hover { text-decoration: underline; }
 </head>
 <body>
 <main>
+<p class="small"><a href="index.html">Optical balance</a></p>
 <h1>The box is not the ink</h1>
 <p class="lede">Center a logo by its bounding box and it looks off center. I built a Claude Code skill that measures where the eye sees the center of a mark and how large the mark looks. Every figure in this post is its output, and every number is a measurement of that figure.</p>
 

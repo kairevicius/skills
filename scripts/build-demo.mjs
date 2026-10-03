@@ -1,5 +1,5 @@
 /**
- * Builds docs/align-demo.html: a design-canvas mock whose align tools work in two modes.
+ * Builds docs/demo.html: a design-canvas mock whose align tools work in two modes.
  * Geometric aligns the layer box, the way design tools do today. Optical aligns centers on
  * the measured visual center and edges on the ink box.
  *
@@ -417,6 +417,6 @@ fit();
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
     const { html, layers } = await renderDemo();
     console.log(layers.map((l) => `${l.id.padEnd(15)} visual ${(l.visual.x * 100).toFixed(1)}%, ${(l.visual.y * 100).toFixed(1)}%  ink x ${(l.ink.x0 * 100).toFixed(1)}–${(l.ink.x1 * 100).toFixed(1)}% y ${(l.ink.y0 * 100).toFixed(1)}–${(l.ink.y1 * 100).toFixed(1)}%  faint ${l.faint}%`).join("\n"));
-    writeFileSync(join(ROOT, "docs/align-demo.html"), html);
-    console.log(`wrote docs/align-demo.html (${(html.length / 1024).toFixed(0)} KB, ${layers.length} measured layers)`);
+    writeFileSync(join(ROOT, "docs/demo.html"), html);
+    console.log(`wrote docs/demo.html (${(html.length / 1024).toFixed(0)} KB, ${layers.length} measured layers)`);
 }

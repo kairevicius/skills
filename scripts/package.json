@@ -1,8 +1,19 @@
 {
-  "name": "optical-balance-scripts",
+  "name": "optical-balance",
+  "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Measurement and rendering helpers for the optical-balance skill.",
+  "description": "Measure where a logo or icon looks centered and how large it looks, then place and size it by that measurement.",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.17"
+  },
+  "scripts": {
+    "test": "node --test test.mjs",
+    "docs": "node build-docs.mjs",
+    "docs:inline": "node build-docs.mjs --inline",
+    "demo": "node build-demo.mjs"
+  },
   "dependencies": {
     "sharp": "^0.34.3"
   }

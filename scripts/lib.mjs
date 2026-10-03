@@ -703,8 +703,12 @@ export async function renderStrip(files, {
 const f1 = (n) => n.toFixed(1);
 const pct = (n) => `${n >= 0 ? "+" : ""}${n.toFixed(1)}%`;
 
-/** Human-readable report for one measurement. */
-export function formatMeasure(m, label = "") {
+/**
+ * Human-readable report for one measurement. `verdict` adds PASS or FAIL to the off
+ * center line; use it only when the image is a rendered container, because the off
+ * center of a bare element is the size of its correction, not a failure.
+ */
+export function formatMeasure(m, label = "", { verdict = false } = {}) {
     const lines = [];
     if (label) lines.push(label);
     lines.push(`image            ${m.width}x${m.height}, background luminance ${f1(m.bgLum)}`);
@@ -721,6 +725,7 @@ export function formatMeasure(m, label = "") {
     lines.push(`css              transform: translate(${m.offsetPct.x.toFixed(2)}%, ${m.offsetPct.y.toFixed(2)}%)  (percent of this image's own box, as placed)`);
     const off = offCenter(m);
     if (m.alphaArea === 0) lines.push("off center       not measurable: no ink against this background");
-    else lines.push(`off center       ${off.pct.toFixed(2)}% of the shorter side (${f1(off.px)}px)  ${off.pct <= GATES.offCenterPct ? "PASS" : "FAIL"} at ${GATES.offCenterPct}% when this image is the rendered container`);
+    else if (verdict) lines.push(`off center       ${off.pct.toFixed(2)}% of the shorter side (${f1(off.px)}px)  ${off.pct <= GATES.offCenterPct ? "PASS" : "FAIL"} at ${GATES.offCenterPct}%`);
+    else lines.push(`off center       ${off.pct.toFixed(2)}% of the shorter side (${f1(off.px)}px)  (to judge a rendered result, use check)`);
     return lines.join("\n");
 }

@@ -196,7 +196,7 @@ try {
         warn(files[0], t.warnings);
         writeFileSync(o.out, t.png);
         console.log(formatMeasure(t.artwork, `1. artwork cropped to its ink and fitted into the art box (${o.centering ?? "visual"} centering): the offset to apply is here`));
-        console.log("\n" + formatMeasure(t.result, `2. baked tile ${o.out}: its off center line is the gate`));
+        console.log("\n" + formatMeasure(t.result, `2. baked tile ${o.out}: its off center line is the gate`, { verdict: true }));
     } else if (command === "frame") {
         if (!o.out) fail("frame needs --out <file.png>");
         const f = await renderFrame(files[0], {

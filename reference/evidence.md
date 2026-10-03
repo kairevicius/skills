@@ -1,8 +1,6 @@
 # Evidence
 
-Each result in this file comes with the command that reproduces it. Run the commands from the skill folder, after `npm install` in `scripts/`. The outputs below are from 2026-10-02. If a rerun gives a different output, the rerun is correct, and this file needs an update.
-
-`docs/index.html` holds the full set of cases as figures. `node scripts/build-docs.mjs` rebuilds every figure and every number on that page from `docs/sources/`. This file does not copy those numbers, so they cannot drift here.
+Each result in this file comes with the command that reproduces it. Run the commands from the skill folder, after `npm install` in `scripts/`. The outputs below are from 2026-10-03. If a rerun gives a different output, the rerun is correct, and this file needs an update.
 
 ## Worked example: the Amazon wordmark on a tile
 
@@ -10,10 +8,10 @@ Each result in this file comes with the command that reproduces it. Run the comm
 node scripts/optical.mjs tile docs/sources/amazon.svg --out amazon-tile.png
 ```
 
-The script fits the trimmed mark into the art box of a 256px tile and measures it against white. Then it places the mark and measures the baked tile again:
+The script crops the mark to its ink, fits it into the art box of a 256px tile, and measures it against white. Then it places the mark and measures the baked tile again:
 
 ```
-artwork inside the art box (visual centering)
+1. artwork cropped to its ink and fitted into the art box (visual centering): the offset to apply is here
 image            195x59, background luminance 255.0
 ink box          195x59 at 0,0
 box center       97.5, 29.5
@@ -25,8 +23,10 @@ faint-ink share  15% below contrast 0.6
 visual size      59.8px (sqrt of contrast-weighted ink area)
 perceived size   59.4px (geometric mean of visual size and ink height; equal across an equalized set)
 offset to apply  x +0.2px (+0.1%), y +11.7px (+19.8%)  (positive y moves the element down)
+css              transform: translate(0.11%, 19.78%)  (percent of this image's own box, as placed)
+off center       19.78% of the shorter side (11.7px)  (to judge a rendered result, use check)
 
-baked tile amazon-tile.png
+2. baked tile amazon-tile.png: its off center line is the gate
 image            256x256, background luminance 255.0
 ink box          195x59 at 31,110
 box center       128.0, 128.0
@@ -38,6 +38,8 @@ faint-ink share  31% below contrast 0.6
 visual size      59.8px (sqrt of contrast-weighted ink area)
 perceived size   59.4px (geometric mean of visual size and ink height; equal across an equalized set)
 offset to apply  x -0.3px (-0.1%), y +0.2px (+0.1%)  (positive y moves the element down)
+css              transform: translate(-0.13%, 0.08%)  (percent of this image's own box, as placed)
+off center       0.15% of the shorter side (0.4px)  PASS at 1%
 ```
 
 How to read it:
@@ -45,7 +47,7 @@ How to read it:
 - The extent center (y 17.5) uses the 35px-tall letters only, because the smile is faint ink at a 15% share. The ink box is 59px tall, because it includes the smile.
 - The alpha centroid (y 22.3) counts the smile at full weight. It would leave the letters too high.
 - The offset moves the mark down by 11.7px, which is 19.8% of its height.
-- The baked tile measures 0.4px from its center: the residual is 0.3px on x and 0.2px on y. That passes the 1% gate.
+- The baked tile is 0.4px off center: 0.15% of the tile, which passes the 1% gate.
 - The faint-ink share rises from 15% to 31% in the baked tile. The tile is opaque, and its anti-aliased edges add faint ink. The share stays below 1/3, so the discount still applies. A mark with a share near 1/3 could switch.
 
 ## Worked example: a nine-logo strip
@@ -56,23 +58,25 @@ node scripts/optical.mjs equalize docs/sources/{amazon,google,stripe,slack,shopi
 
 ```
 target visual size 23.4px at row height 40px
-file                equal-height  visual size  correction    render (w x h)
-amazon.svg                132x40         40.7      x0.758        100.2x30.3
-google.svg                121x40         26.3      x0.943        114.6x37.7
-stripe.svg                 96x40         30.3      x0.878         84.5x35.1
-slack.svg                 158x40         44.6      x0.724        114.5x29.0
-shopify.svg               140x40         38.6      x0.778        109.1x31.1
-apple.svg                  33x40         28.7      x0.902         29.4x36.1
-mastercard.svg             52x40         28.5      x0.906         46.7x36.2
-netflix.svg               148x40         41.7      x0.749        110.7x29.9
-airbnb.svg                128x40         23.4      x1.000        128.0x40.0
+file                  equal-height  visual size  correction     ink (w x h)    file (w x h)
+amazon.svg                  132x40         40.7      x0.758      100.2x30.3      100.4x30.3
+google.svg                  121x40         26.3      x0.943      114.6x37.7      115.7x39.1
+stripe.svg                   96x40         30.3      x0.878       84.5x35.1       84.5x35.1
+slack.svg                   158x40         44.6      x0.724      114.5x29.0      115.0x29.3
+shopify.svg                 140x40         38.6      x0.778      109.1x31.1      109.2x34.2
+apple.svg                    33x40         28.7      x0.902       29.4x36.1       29.4x36.1
+mastercard.svg               52x40         28.5      x0.906       46.7x36.2       46.7x36.2
+netflix.svg                 148x40         41.7      x0.749      110.7x29.9      110.7x29.9
+airbnb.svg                  128x40         23.4      x1.000      128.0x40.0      128.0x40.0
+ink: the visible artwork at its new size. file: the whole file at the same scale, padding included; use it to size an <img> of the file as it is.
 ```
 
 How to read it:
 
 - At equal height, Slack, Netflix, and Amazon have the largest visual sizes. Airbnb has the smallest, so it is the target, and it keeps its full height.
 - Apple and Mastercard are compact marks with small visual sizes at equal height. They shrink less than the wide wordmarks.
-- The strip in `docs/index.html` renders these sizes and measures each logo again. It reports the size spread before and after.
+- The `file` column is larger than the `ink` column where the SVG has padding, as Google and Shopify do. Use it to size an `<img>` of the file.
+- `node scripts/optical.mjs strip <same files> --out strip.png --height 40` renders the row and measures a size spread of 0.76%.
 
 ## Calibration: the size power on an icon set
 
@@ -96,9 +100,22 @@ node scripts/optical.mjs strip docs/sources/icons/{square,circle,diamond,star}-f
 node scripts/optical.mjs strip docs/sources/icons/{square,circle,diamond,star}-fill.svg --out icons-full.png --height 64 --target docs/sources/icons/square-fill.svg --grow --strength 1
 ```
 
-## Cases on the docs page
+## Validation on held-out artwork
 
-Each case is a section of `docs/index.html`, with its measured values in the figures and the text:
+The method was tuned on the logos in `docs/sources`. On 2026-10-03 it was tested on artwork it had never seen. The test placed each artwork by its own box, as a layout does, and by the skill's procedure, then measured both results.
+
+| set | artwork | geometric, above 1% off center | optical, above 1% off center | largest optical residual |
+|---|---|---|---|---|
+| connector logos, 48px PNGs with transparency, in a 96px tile | 50 | 24 | 0 | 0.53% |
+| Lucide stroke icons, white on a dark round button | 24 | 9 | 0 | 0.25% |
+
+Visual inspection of the 24 largest logo corrections showed the expected direction in each case: heavy bases move up, top-heavy marks move down, and arrows move toward their tail. Lucide draws its play icon already shifted right inside its frame. The skill measures that frame-centered play icon at 0.08% off center, which agrees with the designers' hand placement.
+
+Three agents also tested the skill cold, with only this folder and a realistic request: logo tiles, a logo wall, and a play button. Their reports found the failures that the current version fixes: trim against the corner pixel, silent zeros for a white icon and an opaque backdrop, no command to verify a CSS offset, and unclear gates. `scripts/test.mjs` keeps each of those fixed.
+
+## Cases in the write-up
+
+Each case is a section of `docs/write-up.html`, with its measured values in the figures and the text:
 
 | case | what it shows |
 |---|---|
@@ -125,6 +142,4 @@ Designers already make these corrections by eye. The skill measures them. Cite t
 
 ## History
 
-The method started in September 2026 on a company-logo tile bake in the Well platform. The Amazon wordmark looked too high on its white tile, although the bake used alpha-centroid centering. The accent discount came first. The 1/3 limit came next, when the two PayPal blues moved off center under the discount. The size rule came last, when a logo strip at equal height looked uneven.
-
-That platform implementation is not on the platform's develop branch. This folder is the maintained implementation, and `scripts/lib.mjs` is its source of truth.
+The method started in September 2026 on a pipeline that bakes company logos into square tiles. The Amazon wordmark looked too high on its white tile, although the bake used alpha-centroid centering. The accent discount came first. The 1/3 limit came next, when the two PayPal blues moved off center under the discount. The size rule came last, when a logo strip at equal height looked uneven. In October 2026, cold-agent tests and the held-out validation above added the input warnings, `place`, `check`, and the size correction in `strip`.
