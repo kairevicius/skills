@@ -1,0 +1,9 @@
+{
+  "name": "optical-balance-scripts",
+  "private": true,
+  "type": "module",
+  "description": "Measurement and rendering helpers for the optical-balance skill.",
+  "dependencies": {
+    "sharp": "^0.34.3"
+  }
+}
