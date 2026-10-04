@@ -19,17 +19,26 @@
  */
 import { parseArgs } from "node:util";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { basename, extname, join } from "node:path";
+import { basename, dirname, extname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import sharp from "sharp";
-import {
-    equalize, formatMeasure, measureFile, offCenter, renderFrame, renderPlacement, renderStrip, renderTile, sizeSpread, GATES,
-} from "./lib.mjs";
 
 const fail = (message, code = 2) => {
     console.error(`optical: ${message}`);
     process.exit(code);
 };
+
+// Every agent installs skills in its own folder, so name this script's folder when sharp is missing.
+let sharp, lib;
+try {
+    sharp = (await import("sharp")).default;
+    lib = await import("./lib.mjs");
+} catch (error) {
+    if (error.code === "ERR_MODULE_NOT_FOUND" && /'sharp'/.test(error.message)) {
+        fail(`sharp is not installed. Run once: cd "${dirname(fileURLToPath(import.meta.url))}" && npm install`, 1);
+    }
+    throw error;
+}
+const { equalize, formatMeasure, measureFile, offCenter, renderFrame, renderPlacement, renderStrip, renderTile, sizeSpread, GATES } = lib;
 
 /** The usage block at the top of this file, so --help and the header never disagree. */
 const USAGE = (() => {

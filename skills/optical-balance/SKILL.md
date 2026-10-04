@@ -49,7 +49,7 @@ These are the words that the script prints. Use each one with this meaning only.
 
 ## Setup
 
-Install sharp once: `cd <skill folder>/scripts && npm install`. Then run `node <skill folder>/scripts/optical.mjs ...` from any folder. `optical.mjs --help` lists every command and option. To use the library in your own script, import it by path, for example `import { measureFile } from "<skill folder>/scripts/lib.mjs"`. The library resolves sharp from its own folder.
+Install sharp once: `cd <skill folder>/scripts && npm install`. If you skip this, the script stops and prints that command with the folder filled in. Then run `node <skill folder>/scripts/optical.mjs ...` from any folder. `optical.mjs --help` lists every command and option. To use the library in your own script, import it by path, for example `import { measureFile } from "<skill folder>/scripts/lib.mjs"`. The library resolves sharp from its own folder.
 
 ## Workflow
 

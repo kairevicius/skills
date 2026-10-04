@@ -10,17 +10,21 @@ A design call like "the logo sits a bit high" usually ends in a nudge by eye. No
 
 ## Install
 
+These are agent skills: plain `SKILL.md` folders that any agent which reads skills can use, such as Claude Code, Codex, Cursor, OpenCode, Gemini CLI, and [many more](https://github.com/vercel-labs/skills#supported-agents).
+
 ```bash
 npx skills@latest add kairevicius/skills
 ```
 
-To install one skill for Claude Code only:
+The CLI asks which skills to install and for which agents. To choose up front, name them:
 
 ```bash
-npx skills@latest add kairevicius/skills --skill optical-balance -g -a claude-code
+npx skills@latest add kairevicius/skills --skill optical-balance -a codex -a cursor
 ```
 
-A skill that ships a script lists its setup in its `SKILL.md`. For `optical-balance`, run `npm install` once in its `scripts` folder, for example `~/.claude/skills/optical-balance/scripts`.
+Add `-g` to install for your user instead of the current project. Without the CLI, copy a folder from `skills/` into your agent's skills folder.
+
+A skill that ships a script lists its setup in its `SKILL.md`, and your agent follows it. `optical-balance` needs Node 18.17 or later. If its one dependency is missing, its script prints the exact `npm install` command for the folder your agent installed it in.
 
 ## Reference
 

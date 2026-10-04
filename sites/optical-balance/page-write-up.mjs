@@ -132,7 +132,7 @@ a:hover { text-decoration: underline; }
 <main>
 <p class="small"><a href="index.html">Optical balance</a></p>
 <h1>The box is not the ink</h1>
-<p class="lede">Center a logo by its bounding box and it looks off center. I built a Claude Code skill that measures where the eye sees the center of a mark and how large the mark looks. Every figure in this post is its output, and every number is a measurement of that figure.</p>
+<p class="lede">Center a logo by its bounding box and it looks off center. I built an agent skill that measures where the eye sees the center of a mark and how large the mark looks. It works with Claude Code, Codex, Cursor, or any agent that reads skills. Every figure in this post is its output, and every number is a measurement of that figure.</p>
 
 <figure class="hero">${motion}</figure>
 <p>Each shape starts with its layout box on the exact center of its tile, the way a layout system places it. Then it moves to where the eye reads its center, and its dashed box moves with it. The triangle moves ${direction(moves.triangle)}, the Amazon wordmark moves ${direction(moves.amazon)}, and the play icon moves ${direction(moves.play)}.</p>

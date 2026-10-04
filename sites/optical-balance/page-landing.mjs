@@ -27,7 +27,7 @@ export default function renderLanding({ F, N, label, webp, repo, ACCENT, LINK })
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Optical balance</title>
-<meta name="description" content="A Claude Code skill that centers and sizes logos and icons by what the eye sees, measures the result, and gives you the CSS offset.">
+<meta name="description" content="An agent skill for Claude Code, Codex, Cursor, and other agents that centers and sizes logos and icons by what the eye sees, measures the result, and gives you the CSS offset.">
 <meta property="og:title" content="Optical balance">
 <meta property="og:description" content="Center and size logos and icons by what the eye sees, not by the bounding box.">
 <meta name="theme-color" content="#fbfbfb">
@@ -93,7 +93,7 @@ ${MOTION_CSS}
 
 <main>
 <h1>Center by what the eye sees</h1>
-<p class="lede">A layout centers the bounding box, but the eye does not. Optical balance is a Claude Code skill that measures where a logo or icon looks centered and how large it looks. It gives you the CSS offset and checks the result.</p>
+<p class="lede">A layout centers the bounding box, but the eye does not. Optical balance is an agent skill, for Claude Code, Codex, Cursor, or any agent that reads skills. It measures where a logo or icon looks centered and how large it looks. It gives you the CSS offset and checks the result.</p>
 <figure class="hero">${motionFigure(F.introMotion)}</figure>
 <p class="small">Each shape moves from its box center to its measured visual center.</p>
 <div class="links"><a href="#install">Install the skill</a><a href="demo.html">Try the demo</a></div>
@@ -135,13 +135,11 @@ ${pair("An icon beside a label", "button-before", "button-after", `The fix is le
 
 <section class="block" aria-labelledby="install">
 <h2 id="install">Install</h2>
-<p>You need Node 18.17 or later and Claude Code, or another agent that the skills CLI supports. Install the skill:</p>
+<p>You need Node 18.17 or later and an agent that reads skills, such as Claude Code, Codex, Cursor, OpenCode, or Gemini CLI. Install the skill:</p>
 <pre>npx skills@latest add ${source} \\
-  --skill optical-balance -g -a claude-code</pre>
-<p>Then install its one dependency, sharp:</p>
-<pre>cd ~/.claude/skills/optical-balance/scripts
-npm install</pre>
-<p>Then ask Claude Code in your own words, for example:</p>
+  --skill optical-balance</pre>
+<p>The CLI asks which agents to install it for. Its one dependency, sharp, installs on first use: the skill tells your agent how, and the script prints the exact command if it is missing.</p>
+<p>Then ask your agent in your own words, for example:</p>
 <ul class="asks">
 <li>The play icon in our round button looks off center. Fix it.</li>
 <li>Make these partner logos look the same size in a 32px row.</li>
