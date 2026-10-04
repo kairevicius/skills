@@ -2,21 +2,26 @@
  * Builds the docs site from the skill's own measurement code, so each number on
  * a page is a real measurement of the image beside it. Re-run after any change to lib.mjs:
  *
- *   npm run docs          # docs/index.html (landing), write-up.html, demo.html, and docs/assets
- *   npm run docs:inline   # the same pages with every figure embedded, one file each
+ *   node sites/optical-balance/build-docs.mjs            # dist/index.html (landing), write-up.html, demo.html, and dist/assets
+ *   node sites/optical-balance/build-docs.mjs --inline   # the same pages with every figure embedded, one file each
+ *
+ * Install the skill's dependency first: `npm ci` in skills/optical-balance/scripts.
  */
-import sharp from "sharp";
+import { createRequire } from "node:module";
 import { mkdirSync, writeFileSync, readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import renderWriteUp from "./page-write-up.mjs";
 import { renderDemo } from "./build-demo.mjs";
 import renderLanding from "./page-landing.mjs";
-import { equalize, measure, measureFile, loadRaster, luminance, parseColor, rasterizeSvg, renderFrame, renderStrip, renderTile, toRaw, ACCENT_CONTRAST, ACCENT_MAX_SHARE, BACKGROUND_CONTRAST, CENTER_BLEND, EXTENT_ALPHA, DEFAULT_RASTER_EDGE } from "./lib.mjs";
+import { equalize, measure, measureFile, loadRaster, luminance, parseColor, rasterizeSvg, renderFrame, renderStrip, renderTile, toRaw, ACCENT_CONTRAST, ACCENT_MAX_SHARE, BACKGROUND_CONTRAST, CENTER_BLEND, EXTENT_ALPHA, DEFAULT_RASTER_EDGE } from "../../skills/optical-balance/scripts/lib.mjs";
 
-const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
-const SRC = join(ROOT, "docs/sources");
-const OUT = join(ROOT, "docs/assets");
+const HERE = dirname(fileURLToPath(import.meta.url));
+const SKILL = join(HERE, "../../skills/optical-balance");
+const sharp = createRequire(join(SKILL, "scripts/package.json"))("sharp");
+const SRC = join(HERE, "sources");
+const DIST = join(HERE, "dist");
+const OUT = join(DIST, "assets");
 mkdirSync(OUT, { recursive: true });
 
 const ACCENT = "#06b6d4";
@@ -867,7 +872,7 @@ const img = (rec, w, h, alt, cls = "") => `<span class="fig ${cls}${rec.dark ? "
 /** The caption is not rendered: the label, the measurements and the section prose carry it. It stays as the image's alt text. */
 const fig = (rec, w, h, caption, alt, cls = "") => `<figure>${label(rec)}${img(rec, w, h, caption || alt, cls)}</figure>`;
 
-// The pages link their figures from docs/assets, which suits a site. `--inline` embeds every
+// The pages link their figures from dist/assets, which suits a site. `--inline` embeds every
 // figure instead, so a page renders on its own wherever it is opened or sent.
 const INLINE = process.argv.includes("--inline");
 const MIME = { png: "image/png", webp: "image/webp" };
@@ -895,17 +900,17 @@ for (const id of LANDING_FIGURES) {
         comps.push({ input: await sharp(join(OUT, F[id].src.replace(/^assets\//, ""))).resize(PANEL, PANEL).png().toBuffer(), left: x, top: PAD + LABEL });
         text += `<text x="${x}" y="${PAD + 18}" font-family="Helvetica, Arial, sans-serif" font-size="15" font-weight="600" fill="#1a1a1a">${i % 2 ? "Optical" : "Geometric"}</text>`;
     }
-    mkdirSync(join(ROOT, "media"), { recursive: true });
+    mkdirSync(join(HERE, "../../media"), { recursive: true });
     await sharp({ create: { width: W, height: H, channels: 4, background: "#fbfbfb" } })
         .composite([{ input: Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}">${text}</svg>`), left: 0, top: 0 }, ...comps])
-        .png({ compressionLevel: 9, palette: true, quality: 90 }).toFile(join(ROOT, "media/preview.png"));
+        .png({ compressionLevel: 9, palette: true, quality: 90 }).toFile(join(HERE, "../../media/optical-balance.png"));
 }
 
 // The GitHub Pages workflow sets GITHUB_REPOSITORY, which turns on the repository links.
 const repo = process.env.GITHUB_REPOSITORY || process.env.OPTICAL_REPO || "";
 const demo = await renderDemo();
-writeFileSync(join(ROOT, "docs/index.html"), finish(renderLanding({ F, N, label, webp, repo, ACCENT, LINK })));
-writeFileSync(join(ROOT, "docs/write-up.html"), finish(renderWriteUp({ F, N, img, label, labelOf, offCenterOf, demo, PAIR_W, ACCENT, LINK, GUIDE, ACCENT_SHARE_LABEL })));
-writeFileSync(join(ROOT, "docs/demo.html"), demo.html);
-console.log(`wrote docs/index.html, docs/write-up.html and docs/demo.html${INLINE ? " (self-contained)" : ""}, and ${Object.keys(figures).length - 1} figures under docs/assets`);
+writeFileSync(join(DIST, "index.html"), finish(renderLanding({ F, N, label, webp, repo, ACCENT, LINK })));
+writeFileSync(join(DIST, "write-up.html"), finish(renderWriteUp({ F, N, img, label, labelOf, offCenterOf, demo, PAIR_W, ACCENT, LINK, GUIDE, ACCENT_SHARE_LABEL })));
+writeFileSync(join(DIST, "demo.html"), demo.html);
+console.log(`wrote dist/index.html, dist/write-up.html and dist/demo.html${INLINE ? " (self-contained)" : ""}, and ${Object.keys(figures).length - 1} figures under dist/assets`);
 console.log(JSON.stringify(numbers, null, 1));

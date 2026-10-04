@@ -1,5 +1,5 @@
 /**
- * Builds docs/demo.html: a design-canvas mock whose align tools work in two modes.
+ * Builds dist/demo.html: a design-canvas mock whose align tools work in two modes.
  * Geometric aligns the layer box, the way design tools do today. Optical aligns centers on
  * the measured visual center and edges on the ink box.
  *
@@ -7,19 +7,21 @@
  * only applies the measured fractions. The page draws the same SVG strings that this script
  * measures, so the numbers and the pixels describe one artwork.
  */
-import sharp from "sharp";
+import { createRequire } from "node:module";
 import { readFileSync, writeFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { measure, parseColor, toRaw, DEFAULT_RASTER_EDGE } from "./lib.mjs";
+import { measure, parseColor, toRaw, DEFAULT_RASTER_EDGE } from "../../skills/optical-balance/scripts/lib.mjs";
 
-const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
-const SRC = join(ROOT, "docs/sources");
+const HERE = dirname(fileURLToPath(import.meta.url));
+const SKILL = join(HERE, "../../skills/optical-balance");
+const sharp = createRequire(join(SKILL, "scripts/package.json"))("sharp");
+const SRC = join(HERE, "sources");
 const INK = "#1a1a1a";
 
 const FRAME = { w: 760, h: 470, fill: "#ffffff" };
 const svg = (w, h, body) => `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">${body}</svg>`;
-const icon = (name, color = INK) => readFileSync(join(SRC, "icons", `${name}-fill.svg`), "utf8").replace(/currentColor/g, color);
+const icon = (name, color = INK) => readFileSync(join(SKILL, "fixtures/icons", `${name}-fill.svg`), "utf8").replace(/currentColor/g, color);
 
 /**
  * The scene. Containers are layers that hold children; a child is measured against its
@@ -417,6 +419,6 @@ fit();
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
     const { html, layers } = await renderDemo();
     console.log(layers.map((l) => `${l.id.padEnd(15)} visual ${(l.visual.x * 100).toFixed(1)}%, ${(l.visual.y * 100).toFixed(1)}%  ink x ${(l.ink.x0 * 100).toFixed(1)}–${(l.ink.x1 * 100).toFixed(1)}% y ${(l.ink.y0 * 100).toFixed(1)}–${(l.ink.y1 * 100).toFixed(1)}%  faint ${l.faint}%`).join("\n"));
-    writeFileSync(join(ROOT, "docs/demo.html"), html);
-    console.log(`wrote docs/demo.html (${(html.length / 1024).toFixed(0)} KB, ${layers.length} measured layers)`);
+    writeFileSync(join(HERE, "dist/demo.html"), html);
+    console.log(`wrote dist/demo.html (${(html.length / 1024).toFixed(0)} KB, ${layers.length} measured layers)`);
 }

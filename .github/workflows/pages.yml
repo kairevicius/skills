@@ -17,23 +17,26 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: scripts
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: scripts/package-lock.json
-      - run: npm ci
-      - run: npm test
-      - run: npm run docs
+          cache-dependency-path: skills/*/scripts/package-lock.json
+      - name: Test optical-balance
+        working-directory: skills/optical-balance/scripts
+        run: npm ci && npm test
+      - name: Build the sites
+        run: |
+          node sites/optical-balance/build-docs.mjs
+          mkdir -p _site
+          cp sites/index.html _site/index.html
+          cp -R sites/optical-balance/dist _site/optical-balance
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: docs
+          path: _site
 
   deploy:
     needs: build

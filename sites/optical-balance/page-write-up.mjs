@@ -5,7 +5,7 @@
  * way a shape moves) is derived from those measurements rather
  * than written as text, so a rebuild cannot leave a sentence that the figures contradict.
  */
-import { ACCENT_CONTRAST, BACKGROUND_CONTRAST, CENTER_BLEND, DEFAULT_RASTER_EDGE, EXTENT_ALPHA } from "./lib.mjs";
+import { ACCENT_CONTRAST, BACKGROUND_CONTRAST, CENTER_BLEND, DEFAULT_RASTER_EDGE, EXTENT_ALPHA } from "../../skills/optical-balance/scripts/lib.mjs";
 import { motionFigure, MOTION_CSS } from "./page-parts.mjs";
 
 export default function renderWriteUp({ F, N, img, label, labelOf, offCenterOf, demo, PAIR_W, ACCENT, LINK, GUIDE, ACCENT_SHARE_LABEL }) {

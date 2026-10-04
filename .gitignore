@@ -1,0 +1,6 @@
+.DS_Store
+node_modules/
+_site/
+
+# Built by sites/<name>/build-docs.mjs; the Pages workflow rebuilds them.
+sites/*/dist/

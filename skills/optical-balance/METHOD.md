@@ -92,7 +92,7 @@ So the gate is a tolerance (1% or less off center), not zero. A residual below o
 | `ACCENT_CONTRAST` | 0.6 | which ink is faint | the Amazon smile measures 0.35 on white and 0.65 inverted on black, and the threshold is between them |
 | `ACCENT_MAX_SHARE` | 1/3 | when faint ink stops being an accent | the lighter PayPal blue is 41% of its mark and must keep its full weight |
 | `CENTER_BLEND` | 0.5 | where the visual center sits between extent and mass | box centering and mass centering miss a triangle by almost equal amounts in opposite directions |
-| size power | 0.5 | how strongly a set is equalized | it makes perceived sizes equal at one ink height; the icon-set calibration in `evidence.md` confirms it |
+| size power | 0.5 | how strongly a set is equalized | it makes perceived sizes equal at one ink height; the icon-set calibration in [EVIDENCE.md](EVIDENCE.md) confirms it |
 | `DEFAULT_RASTER_EDGE` | 1024px | the raster size of vector input | a fixed size, so that one SVG always gives one result; no experiment set this value |
 
-The Amazon and PayPal values come from `docs/index.html`, which rebuilds them from the source artwork. See `evidence.md` for the commands.
+The Amazon and PayPal values come from the skill's write-up, which its build measures again from the source artwork. See [EVIDENCE.md](EVIDENCE.md) for the commands.

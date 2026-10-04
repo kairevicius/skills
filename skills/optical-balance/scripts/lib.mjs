@@ -163,6 +163,21 @@ export function detectBackground(raw) {
 }
 
 /**
+ * Whether an opaque border is a backdrop with artwork on it, or only the edge of a solid
+ * shape that fills its frame, such as a square icon. A backdrop holds pixels of another color.
+ */
+function holdsArtwork(raw, own) {
+    const { data } = raw;
+    let visible = 0, other = 0;
+    for (let i = 0; i < data.length; i += 4) {
+        if (data[i + 3] < 128) continue;
+        visible++;
+        if (Math.abs(luminance(data[i], data[i + 1], data[i + 2]) - own.color.lum) / 255 > BACKGROUND_CONTRAST) other++;
+    }
+    return visible > 0 && other / visible >= 0.02;
+}
+
+/**
  * Resolve the `bg` option. `auto` uses the image's own opaque background; a
  * transparent image has none, so auto falls back to white and says so.
  */
@@ -200,7 +215,7 @@ export function inputWarnings(raw, bg) {
     else if (ink === 0) warnings.push(`No ink differs from the ${bgText}. The element may be the same color as the background, for example a white or currentColor icon. Pass the real background with --bg.`);
     else if (maxContrast < LOW_CONTRAST) warnings.push(`The element barely shows on the ${bgText}: its strongest contrast is ${maxContrast.toFixed(2)}. Check --bg.`);
     const own = detectBackground(raw);
-    if (own.opaque) {
+    if (own.opaque && holdsArtwork(raw, own)) {
         const differs = Math.abs(own.color.lum - color.lum) / 255 > BACKGROUND_CONTRAST;
         // Luminance alone misses a tinted backdrop of the same lightness, which still shows as a faint rectangle.
         const tinted = Math.max(Math.abs(own.color.r - color.r), Math.abs(own.color.g - color.g), Math.abs(own.color.b - color.b)) > 4;
@@ -386,7 +401,7 @@ export async function renderPlacement(file, {
     // nothing about the artwork inside it. Measure that artwork against its own backdrop.
     const own = detectBackground(artRaw);
     let inside = null;
-    if (own.opaque && own.share >= BORDER_UNIFORM) {
+    if (own.opaque && own.share >= BORDER_UNIFORM && holdsArtwork(artRaw, own)) {
         const m = measure(artRaw, own.color.lum, { blend });
         const off = Math.hypot(m.visual.x - m.box.x, m.visual.y - m.box.y);
         inside = { backdrop: own.hex, pct: (off / Math.min(pw, ph)) * 100, offset: { x: m.offsetPct.x, y: m.offsetPct.y } };

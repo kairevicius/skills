@@ -9,10 +9,7 @@
     "node": ">=18.17"
   },
   "scripts": {
-    "test": "node --test test.mjs",
-    "docs": "node build-docs.mjs",
-    "docs:inline": "node build-docs.mjs --inline",
-    "demo": "node build-demo.mjs"
+    "test": "node --test test.mjs"
   },
   "dependencies": {
     "sharp": "^0.34.3"

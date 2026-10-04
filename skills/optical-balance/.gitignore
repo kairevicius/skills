@@ -1,7 +1,0 @@
-.DS_Store
-node_modules/
-scripts/.scratch/
-
-# Built by scripts/build-docs.mjs. The Pages workflow rebuilds them from the sources.
-docs/*.html
-docs/assets/

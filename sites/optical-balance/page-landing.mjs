@@ -8,8 +8,8 @@ import { motionFigure, MOTION_CSS } from "./page-parts.mjs";
 export default function renderLanding({ F, N, label, webp, repo, ACCENT, LINK }) {
     const abs = (v) => Math.abs(Number(v));
     const pct1 = (v) => Number(v).toFixed(1);
-    // Escaped, because the placeholder sits inside HTML until the Pages build supplies the repository.
-    const clone = repo ? `https://github.com/${repo}.git` : "&lt;repository URL&gt;";
+    // The skills CLI installs from owner/repo; the Pages build supplies it, and a local build falls back to a placeholder.
+    const source = repo || "&lt;owner&gt;/skills";
     const pic = (id, alt) => `<img src="${webp[id]}" width="${F[id].rw}" height="${F[id].rh}" alt="${alt}" loading="lazy" decoding="async">`;
     /** A before-and-after pair: the measured label above each image, one line of measured fact below. */
     const pair = (title, before, after, fact, altBefore, altAfter) => `<section class="example">
@@ -135,11 +135,11 @@ ${pair("An icon beside a label", "button-before", "button-after", `The fix is le
 
 <section class="block" aria-labelledby="install">
 <h2 id="install">Install</h2>
-<p>You need Claude Code and Node 18.17 or later. Clone the skill into your skills folder, and install its one dependency, sharp:</p>
-<pre>git clone \\
-  ${clone} \\
-  ~/.claude/skills/optical-balance
-cd ~/.claude/skills/optical-balance/scripts
+<p>You need Node 18.17 or later and Claude Code, or another agent that the skills CLI supports. Install the skill:</p>
+<pre>npx skills@latest add ${source} \\
+  --skill optical-balance -g -a claude-code</pre>
+<p>Then install its one dependency, sharp:</p>
+<pre>cd ~/.claude/skills/optical-balance/scripts
 npm install</pre>
 <p>Then ask Claude Code in your own words, for example:</p>
 <ul class="asks">
@@ -147,7 +147,7 @@ npm install</pre>
 <li>Make these partner logos look the same size in a 32px row.</li>
 <li>Bake these company logos into 96px avatar tiles.</li>
 </ul>
-<p>The command line works on its own too:</p>
+<p>The command line works on its own too, from the skill folder:</p>
 <pre>node scripts/optical.mjs place play.svg \\
   --container 40 --element 20 \\
   --plate "#111111" --shape circle</pre>

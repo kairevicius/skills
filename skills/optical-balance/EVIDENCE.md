@@ -1,11 +1,11 @@
 # Evidence
 
-Each result in this file comes with the command that reproduces it. Run the commands from the skill folder, after `npm install` in `scripts/`. The outputs below are from 2026-10-03. If a rerun gives a different output, the rerun is correct, and this file needs an update.
+Each result in this file comes with the command that reproduces it. Run the commands from the skill folder, after `npm install` in `scripts/`. The logo examples use files from the repository's `sites/optical-balance/sources`, so clone the repository to rerun them. The outputs below are from 2026-10-03. If a rerun gives a different output, the rerun is correct, and this file needs an update.
 
 ## Worked example: the Amazon wordmark on a tile
 
 ```
-node scripts/optical.mjs tile docs/sources/amazon.svg --out amazon-tile.png
+node scripts/optical.mjs tile ../../sites/optical-balance/sources/amazon.svg --out amazon-tile.png
 ```
 
 The script crops the mark to its ink, fits it into the art box of a 256px tile, and measures it against white. Then it places the mark and measures the baked tile again:
@@ -53,7 +53,7 @@ How to read it:
 ## Worked example: a nine-logo strip
 
 ```
-node scripts/optical.mjs equalize docs/sources/{amazon,google,stripe,slack,shopify,apple,mastercard,netflix,airbnb}.svg --height 40
+node scripts/optical.mjs equalize ../../sites/optical-balance/sources/{amazon,google,stripe,slack,shopify,apple,mastercard,netflix,airbnb}.svg --height 40
 ```
 
 ```
@@ -80,11 +80,11 @@ How to read it:
 
 ## Calibration: the size power on an icon set
 
-The test uses four solid shapes from Bootstrap Icons in `docs/sources/icons/` (MIT license, in the same folder). The square is the keyline anchor at 16px. Icon keyline grids let a circle, a diamond, and a star grow past the square, so that all four look equal.
+The test uses four solid shapes from Bootstrap Icons in `fixtures/icons/` (MIT license, in the same folder). The square is the keyline anchor at 16px. Icon keyline grids let a circle, a diamond, and a star grow past the square, so that all four look equal.
 
 ```
-node scripts/optical.mjs equalize docs/sources/icons/{square,circle,diamond,star}-fill.svg --height 16 --target docs/sources/icons/square-fill.svg --grow
-node scripts/optical.mjs equalize docs/sources/icons/{square,circle,diamond,star}-fill.svg --height 16 --target docs/sources/icons/square-fill.svg --grow --strength 1
+node scripts/optical.mjs equalize fixtures/icons/{square,circle,diamond,star}-fill.svg --height 16 --target fixtures/icons/square-fill.svg --grow
+node scripts/optical.mjs equalize fixtures/icons/{square,circle,diamond,star}-fill.svg --height 16 --target fixtures/icons/square-fill.svg --grow --strength 1
 ```
 
 | shape | correction at power 0.5 | correction at power 1 |
@@ -96,13 +96,13 @@ node scripts/optical.mjs equalize docs/sources/icons/{square,circle,diamond,star
 The power 0.5 grows the three shapes by 6%, 15%, and 17%. The power 1 grows them by 12%, 31%, and 38%, about twice as much. The choice between the two is a visual judgment, and the numbers alone do not settle it. To see both, render each row and compare them side by side:
 
 ```
-node scripts/optical.mjs strip docs/sources/icons/{square,circle,diamond,star}-fill.svg --out icons-half.png --height 64 --target docs/sources/icons/square-fill.svg --grow
-node scripts/optical.mjs strip docs/sources/icons/{square,circle,diamond,star}-fill.svg --out icons-full.png --height 64 --target docs/sources/icons/square-fill.svg --grow --strength 1
+node scripts/optical.mjs strip fixtures/icons/{square,circle,diamond,star}-fill.svg --out icons-half.png --height 64 --target fixtures/icons/square-fill.svg --grow
+node scripts/optical.mjs strip fixtures/icons/{square,circle,diamond,star}-fill.svg --out icons-full.png --height 64 --target fixtures/icons/square-fill.svg --grow --strength 1
 ```
 
 ## Validation on held-out artwork
 
-The method was tuned on the logos in `docs/sources`. On 2026-10-03 it was tested on artwork it had never seen. The test placed each artwork by its own box, as a layout does, and by the skill's procedure, then measured both results.
+The method was tuned on the logos in `sites/optical-balance/sources`. On 2026-10-03 it was tested on artwork it had never seen. The test placed each artwork by its own box, as a layout does, and by the skill's procedure, then measured both results.
 
 | set | artwork | geometric, above 1% off center | optical, above 1% off center | largest optical residual |
 |---|---|---|---|---|
@@ -122,7 +122,7 @@ Three agents also tested the skill cold, with only this folder and a realistic r
 
 ## Cases in the write-up
 
-Each case is a section of `docs/write-up.html`, with its measured values in the figures and the text:
+Each case is a section of [the write-up](https://kairevicius.github.io/skills/optical-balance/write-up.html), with its measured values in the figures and the text:
 
 | case | what it shows |
 |---|---|

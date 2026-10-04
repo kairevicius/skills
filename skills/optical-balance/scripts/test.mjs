@@ -1,5 +1,6 @@
 // Regression tests for the measurement core and the CLI. Run with `npm test` in scripts/.
-// Fixtures are SVG strings built here, plus the MIT-licensed icons and the logo sources in docs/sources.
+// Fixtures are SVG strings built here, plus the MIT-licensed icons in fixtures/icons, so the tests
+// run in an installed copy of the skill with no other files.
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
@@ -13,7 +14,7 @@ import {
 } from "./lib.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const SOURCES = join(HERE, "..", "docs", "sources");
+const ICONS = join(HERE, "..", "fixtures", "icons");
 const TMP = mkdtempSync(join(tmpdir(), "optical-test-"));
 const file = (name, svg) => { const p = join(TMP, name); writeFileSync(p, svg); return p; };
 const svg = (body, w = 120, h = 120) => `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">${body}</svg>`;
@@ -23,10 +24,12 @@ const near = (actual, expected, tolerance, label) => assert.ok(Math.abs(actual -
 // Solid shapes that fill their own box, so the box center is the ink box center.
 const TRIANGLE_UP = file("triangle-up.svg", svg(`<path d="M60 0 L120 120 L0 120 Z" fill="#111"/>`));
 const PLAY = file("play.svg", svg(`<path d="M0 0 L120 60 L0 120 Z" fill="#111"/>`));
+// Wide and flat like a wordmark, so a tile has room to move it.
+const TWO_TONE = file("two-tone.svg", svg(`<rect x="0" y="0" width="240" height="44" fill="#111"/><path d="M40 76 Q120 104 200 76" stroke="#f0a500" stroke-width="12" fill="none" stroke-linecap="round"/>`, 240, 100));
 
 test("a symmetric shape needs no offset", async () => {
     for (const name of ["circle", "square", "diamond"]) {
-        const m = await measureFile(join(SOURCES, "icons", `${name}-fill.svg`), { bg: "255" });
+        const m = await measureFile(join(ICONS, `${name}-fill.svg`), { bg: "255" });
         near(m.offsetPct.x, 0, 0.3, `${name} x`);
         near(m.offsetPct.y, 0, 0.3, `${name} y`);
     }
@@ -104,13 +107,18 @@ test("place finds an offset that passes the gate, and verifies a given offset", 
 });
 
 test("a baked tile passes the gate", async () => {
-    const t = await renderTile(join(SOURCES, "amazon.svg"), { size: 256 });
+    const t = await renderTile(TWO_TONE, { size: 256 });
     assert.ok(offCenter(t.result).pct <= GATES.offCenterPct, `off center ${offCenter(t.result).pct}`);
-    assert.equal(t.artwork.discounted, true, "the Amazon smile is an accent on white");
+    assert.equal(t.artwork.discounted, true, "the faint orange curve is an accent on white");
 });
 
 test("a logo strip equalizes perceived size within the gate", async () => {
-    const logos = ["amazon", "google", "stripe", "slack", "shopify", "apple", "mastercard", "netflix", "airbnb"].map((n) => join(SOURCES, `${n}.svg`));
+    const logos = [
+        file("bar.svg", svg(`<rect x="0" y="40" width="240" height="40" fill="#111"/>`, 240, 120)),
+        file("block.svg", svg(`<rect x="10" y="10" width="100" height="100" fill="#111"/>`)),
+        file("ring.svg", svg(`<circle cx="60" cy="60" r="52" fill="none" stroke="#111" stroke-width="8"/>`)),
+        file("word.svg", svg(`<rect x="0" y="30" width="60" height="60" fill="#2b5cff"/><rect x="80" y="30" width="60" height="60" fill="#2b5cff"/><rect x="160" y="30" width="60" height="60" fill="#2b5cff"/>`, 220, 120)),
+    ];
     const s = await renderStrip(logos, { height: 40 });
     assert.ok(s.verify.spread <= GATES.sizeSpreadPct, `size spread ${s.verify.spread}`);
     const before = await renderStrip(logos, { height: 40, sizing: "height" });
@@ -118,7 +126,7 @@ test("a logo strip equalizes perceived size within the gate", async () => {
 });
 
 test("the documented icon calibration still holds", async () => {
-    const icons = ["square", "circle", "diamond", "star"].map((n) => join(SOURCES, "icons", `${n}-fill.svg`));
+    const icons = ["square", "circle", "diamond", "star"].map((n) => join(ICONS, `${n}-fill.svg`));
     const measured = [];
     for (const f of icons) measured.push(await measureFile(f, { trim: true }));
     const rows = equalize(measured, { height: 16, target: icons[0], grow: true });
@@ -128,8 +136,8 @@ test("the documented icon calibration still holds", async () => {
 
 test("the CLI exits 1 on a failed check and 0 on a pass", async () => {
     const pass = join(TMP, "tile-visual.png"), failing = join(TMP, "tile-box.png");
-    assert.equal(cli("tile", join(SOURCES, "amazon.svg"), "--out", pass).status, 0);
-    assert.equal(cli("tile", join(SOURCES, "amazon.svg"), "--out", failing, "--centering", "box").status, 0);
+    assert.equal(cli("tile", TWO_TONE, "--out", pass).status, 0);
+    assert.equal(cli("tile", TWO_TONE, "--out", failing, "--centering", "box").status, 0);
     assert.equal(cli("check", pass, "--bg", "255").status, 0);
     const r = cli("check", failing, "--bg", "255");
     assert.equal(r.status, 1);
@@ -193,4 +201,9 @@ test("the CLI accepts a negative offset without '=' and prints its usage with --
     const help = cli("--help");
     assert.equal(help.status, 0);
     assert.match(help.stdout, /node optical\.mjs place/);
+});
+
+test("a solid shape that fills its frame is not mistaken for a backdrop", async () => {
+    const m = await measureFile(join(ICONS, "square-fill.svg"), { bg: "255" });
+    assert.ok(!m.warnings.some((w) => w.includes("own opaque background")), m.warnings.join(" | "));
 });
