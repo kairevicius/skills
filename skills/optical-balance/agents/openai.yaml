@@ -1,0 +1,3 @@
+interface:
+  display_name: "Optical balance"
+  short_description: "Center and size marks by what the eye sees"

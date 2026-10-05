@@ -16,13 +16,13 @@ These are agent skills: plain `SKILL.md` folders that any agent which reads skil
 npx skills@latest add kairevicius/skills
 ```
 
-The CLI asks which skills to install and for which agents. To choose up front, name them:
+The CLI asks which skills to install and for which agents. To install one skill, name it:
 
 ```bash
-npx skills@latest add kairevicius/skills --skill optical-balance -a codex -a cursor
+npx skills@latest add kairevicius/skills --skill optical-balance
 ```
 
-Add `-g` to install for your user instead of the current project. Without the CLI, copy a folder from `skills/` into your agent's skills folder.
+Add `-a <agent>` to pick agents up front, for example `-a codex -a cursor`, and `-g` to install for your user instead of the current project. Without the CLI, copy a folder from `skills/` into your agent's skills folder.
 
 A skill that ships a script lists its setup in its `SKILL.md`, and your agent follows it. `optical-balance` needs Node 18.17 or later. If its one dependency is missing, its script prints the exact `npm install` command for the folder your agent installed it in.
 
@@ -38,7 +38,10 @@ A skill that ships a script lists its setup in its `SKILL.md`, and your agent fo
 
 ## Develop
 
+Read [AGENTS.md](AGENTS.md) before you change the repository. It holds the layout, the checklist for each skill, and the house style.
+
 ```bash
+node scripts/check-repo.mjs                         # structure, frontmatter, Codex metadata, install wording
 cd skills/optical-balance/scripts
 npm ci && npm test                                  # the skill's regression tests
 cd ../../.. && node sites/optical-balance/build-docs.mjs   # its site, in sites/optical-balance/dist

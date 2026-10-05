@@ -3,13 +3,11 @@
  * Like the write-up, it states no number that the build did not measure; each value
  * comes from the figures and numbers that build-docs.mjs passes in.
  */
-import { motionFigure, MOTION_CSS } from "./page-parts.mjs";
+import { installCommand, motionFigure, MOTION_CSS } from "./page-parts.mjs";
 
 export default function renderLanding({ F, N, label, webp, repo, ACCENT, LINK }) {
     const abs = (v) => Math.abs(Number(v));
     const pct1 = (v) => Number(v).toFixed(1);
-    // The skills CLI installs from owner/repo; the Pages build supplies it, and a local build falls back to a placeholder.
-    const source = repo || "&lt;owner&gt;/skills";
     const pic = (id, alt) => `<img src="${webp[id]}" width="${F[id].rw}" height="${F[id].rh}" alt="${alt}" loading="lazy" decoding="async">`;
     /** A before-and-after pair: the measured label above each image, one line of measured fact below. */
     const pair = (title, before, after, fact, altBefore, altAfter) => `<section class="example">
@@ -136,8 +134,7 @@ ${pair("An icon beside a label", "button-before", "button-after", `The fix is le
 <section class="block" aria-labelledby="install">
 <h2 id="install">Install</h2>
 <p>You need Node 18.17 or later and an agent that reads skills, such as Claude Code, Codex, Cursor, OpenCode, or Gemini CLI. Install the skill:</p>
-<pre>npx skills@latest add ${source} \\
-  --skill optical-balance</pre>
+<pre>${installCommand("one-skill", "optical-balance")}</pre>
 <p>The CLI asks which agents to install it for. Its one dependency, sharp, installs on first use: the skill tells your agent how, and the script prints the exact command if it is missing.</p>
 <p>Then ask your agent in your own words, for example:</p>
 <ul class="asks">

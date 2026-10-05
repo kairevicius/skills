@@ -24,6 +24,16 @@ jobs:
           node-version: 22
           cache: npm
           cache-dependency-path: skills/*/scripts/package-lock.json
+      - name: Check the repository structure
+        run: node scripts/check-repo.mjs
+      - name: Check that the skills CLI discovers every skill
+        run: |
+          npx -y skills@latest add . --list > discovered.txt 2>&1 || { cat discovered.txt; exit 1; }
+          cat discovered.txt
+          for dir in skills/*/; do
+            name=$(basename "$dir")
+            grep -q "$name" discovered.txt || { echo "::error::the skills CLI did not discover $name"; exit 1; }
+          done
       - name: Test optical-balance
         working-directory: skills/optical-balance/scripts
         run: npm ci && npm test

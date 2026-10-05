@@ -2,6 +2,8 @@
  * Parts shared by the docs pages. The opening animation lives here so the landing page
  * and the write-up show one figure built from one set of measurements.
  */
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 
 /**
  * The opening row: empty plates with each shape as its own layer. Every position is a
@@ -33,3 +35,18 @@ export const MOTION_CSS = `
 @media (prefers-reduced-motion: reduce) {
     .motion-el { animation: none; transform: translate(var(--mx), var(--my)); }
 }`;
+
+
+/**
+ * An install command from the repository's canonical install block, so a page never
+ * restates the wording. `skill` fills the one-skill form. Long commands break before
+ * the first option, which keeps them readable on a phone without changing them.
+ */
+export function installCommand(block, skill) {
+    const text = readFileSync(fileURLToPath(new URL("../../.agents/install-block.md", import.meta.url)), "utf8");
+    const section = text.match(new RegExp(`<canonical-block name="${block}">([\\s\\S]*?)</canonical-block>`));
+    const code = section?.[1].match(/```[a-z]*\n([\s\S]*?)```/)?.[1].trim();
+    if (!code) throw new Error(`.agents/install-block.md has no canonical block "${block}"`);
+    const command = skill ? code.replace("<skill>", skill) : code;
+    return command.length > 44 ? command.replace(/ (--\S+)/, " \\\n  $1") : command;
+}
