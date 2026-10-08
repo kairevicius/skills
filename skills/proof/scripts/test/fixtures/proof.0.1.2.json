@@ -1,0 +1,195 @@
+{
+  "proof_version": "0.1.2",
+  "subject": {
+    "name": "Jordan Rivers",
+    "identities": [
+      "87654321+jordanrivers@users.noreply.github.com"
+    ],
+    "headline": "Backend-focused platform engineer who owns the event-ingestion core end to end — from the append-only log and replay tooling to the on-call runbooks — and directs AI generation to production quality.",
+    "profile_url": "https://github.com/jordanrivers"
+  },
+  "repository": {
+    "name": "octostudio/beacon",
+    "remote": "https://github.com/octostudio/beacon.git",
+    "head_sha": "9999999999999999999999999999999999999999",
+    "analyzed_at": "2026-07-25T10:00:00Z",
+    "first_authored_commit": "2025-09-01",
+    "last_authored_commit": "2026-07-20",
+    "redacted": false,
+    "context": {
+      "total_commits": 3180,
+      "total_authors": 9,
+      "subject_rank": 4
+    },
+    "project": {
+      "name": "Beacon",
+      "description": "Beacon is an event-ingestion platform for retail point-of-sale systems: it collects transaction events, replays them for reconciliation, and exposes a query API for downstream reporting. The codebase is a TypeScript monorepo serving one ingestion service and one query API, in production since early 2024.",
+      "first_commit": "2024-02-10",
+      "structure": "monorepo: 2 services, 3 packages"
+    }
+  },
+  "summary": {
+    "authored_commits": 214,
+    "lines_added": 21430,
+    "lines_removed": 8760,
+    "files_touched": 301,
+    "active_days": 96,
+    "span_days": 322,
+    "ai_assisted_commit_share": 0.22,
+    "recent_commits_90d": 58,
+    "activity_by_month": [
+      {
+        "month": "2025-09",
+        "commits": 14
+      },
+      {
+        "month": "2025-10",
+        "commits": 16
+      },
+      {
+        "month": "2025-11",
+        "commits": 19
+      },
+      {
+        "month": "2025-12",
+        "commits": 22
+      },
+      {
+        "month": "2026-01",
+        "commits": 18
+      },
+      {
+        "month": "2026-02",
+        "commits": 20
+      },
+      {
+        "month": "2026-03",
+        "commits": 25
+      },
+      {
+        "month": "2026-04",
+        "commits": 24
+      },
+      {
+        "month": "2026-05",
+        "commits": 21
+      },
+      {
+        "month": "2026-06",
+        "commits": 20
+      },
+      {
+        "month": "2026-07",
+        "commits": 15
+      }
+    ]
+  },
+  "skills": [
+    {
+      "name": "Event-Sourcing Architecture",
+      "level": "strong",
+      "score": 0.78,
+      "claim_refs": [
+        "c1"
+      ]
+    },
+    {
+      "name": "Ingestion Performance",
+      "level": "moderate",
+      "score": 0.66,
+      "claim_refs": [
+        "c2"
+      ]
+    }
+  ],
+  "stack": [
+    {
+      "name": "TypeScript",
+      "evidence_refs": [
+        "e1"
+      ]
+    },
+    {
+      "name": "Kafka",
+      "evidence_refs": [
+        "e3"
+      ]
+    },
+    {
+      "name": "MCP (Model Context Protocol)",
+      "evidence_refs": [
+        "e4"
+      ]
+    }
+  ],
+  "claims": [
+    {
+      "id": "c1",
+      "claim": "Designed the event-sourcing core that both the ingestion service and the query API replay from.",
+      "category": "architecture",
+      "confidence": 0.88,
+      "authorship": "hand_authored",
+      "evidence_refs": [
+        "e1",
+        "e2"
+      ]
+    },
+    {
+      "id": "c2",
+      "claim": "Rewrote the batch-replay path to stream from Kafka instead of loading full snapshots, cutting reconciliation time from hours to minutes.",
+      "category": "performance",
+      "confidence": 0.75,
+      "authorship": "mixed",
+      "evidence_refs": [
+        "e3"
+      ]
+    },
+    {
+      "id": "c3",
+      "claim": "Directs AI-assisted generation of the MCP tool surface and refines the output through hand-authored validation and error handling.",
+      "category": "ai_native",
+      "confidence": 0.72,
+      "authorship": "ai_directed",
+      "evidence_refs": [
+        "e4"
+      ]
+    }
+  ],
+  "evidence": [
+    {
+      "id": "e1",
+      "type": "directory",
+      "ref": "services/ingestion/src/core",
+      "description": "The event-sourcing core: append-only log, snapshotting, and replay — split into testable pure modules."
+    },
+    {
+      "id": "e2",
+      "type": "commit",
+      "ref": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "description": "Introduced the append-only event log and the replay interface the query API consumes."
+    },
+    {
+      "id": "e3",
+      "type": "commit_range",
+      "ref": "1111111111111111111111111111111111111111..2222222222222222222222222222222222222222",
+      "description": "9-commit migration streaming batch replay from Kafka instead of full snapshots."
+    },
+    {
+      "id": "e4",
+      "type": "metric",
+      "ref": "mcp_tool_generation_chain",
+      "description": "6 sequences of AI-co-authored MCP tool scaffolding followed by subject-authored validation and error-handling commits on the same files."
+    }
+  ],
+  "gaps": [
+    "distributed transaction guarantees across services",
+    "frontend or UI work",
+    "infrastructure provisioning and deployment automation"
+  ],
+  "provenance": {
+    "generator": "proof-skill/0.1.2",
+    "model": "claude-fable-5",
+    "verification": "unverified",
+    "notes": "Synthetic fixture for the proof skill's render tests: a fictional subject and project used to exercise the 0.1.2 fallback render path. Placeholder SHAs; run the validator without --git against this file."
+  }
+}

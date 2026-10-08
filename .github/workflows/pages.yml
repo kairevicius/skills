@@ -37,6 +37,9 @@ jobs:
       - name: Test optical-balance
         working-directory: skills/optical-balance/scripts
         run: npm ci && npm test
+      - name: Test proof
+        working-directory: skills/proof/scripts
+        run: npm ci && npm test
       - name: Build the sites
         run: |
           node sites/optical-balance/build-docs.mjs

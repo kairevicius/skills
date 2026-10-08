@@ -1,0 +1,14 @@
+{
+  "name": "proof",
+  "version": "0.3.0",
+  "private": true,
+  "type": "module",
+  "description": "Turn a repository's git history into claims backed by evidence, and re-derive a proof someone sent you.",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.17"
+  },
+  "scripts": {
+    "test": "node --test test/*.mjs"
+  }
+}

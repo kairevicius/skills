@@ -1,0 +1,477 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "proof.json",
+  "description": "Machine-readable developer evidence extracted from one repository: claims about demonstrated skills, each backed by references (commits, files, pull requests) that a reader can open and check. Generated locally by the subject; contains paths, hashes, and metrics, never source code. Nothing in this document is trusted by a recipient until the recipient re-derives it with verify mode.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "proof_version",
+    "subject",
+    "repository",
+    "summary",
+    "skills",
+    "claims",
+    "evidence",
+    "gaps",
+    "provenance"
+  ],
+  "properties": {
+    "proof_version": {
+      "type": "string",
+      "pattern": "^0\\.3\\.[0-9]+$",
+      "default": "0.3.0",
+      "description": "Version of this schema the document conforms to. `pattern` is the range the skill accepts; `default` is the version the skill currently emits. Both are read from this file; no other copy exists."
+    },
+    "subject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "identities"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "identities": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 10,
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$",
+            "maxLength": 254
+          },
+          "description": "The exact author emails whose commits are the subject's. Matched by ASCII-lowercase equality on the raw author email: no substring, no name match, no mailmap, no Unicode case folding."
+        },
+        "account": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["host", "login"],
+          "properties": {
+            "host": { "enum": ["github.com", "gitlab.com", "codeberg.org"] },
+            "login": { "type": "string", "pattern": "^[A-Za-z0-9](?:[A-Za-z0-9._-]{0,38})$" }
+          },
+          "description": "The forge account the subject signs the proof with. Verify checks the signature against the account's public SSH keys and that each identity email belongs to the account. The report links to the profile unless the document is redacted."
+        },
+        "headline": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 300,
+          "description": "One positioning sentence written from the finished claims. It may assert nothing the claims do not back, and every number in it must appear in an evidence description."
+        },
+        "role_family": {
+          "enum": [
+            "software_engineering",
+            "data_and_ml",
+            "design",
+            "technical_writing",
+            "platform_and_operations",
+            "product_management",
+            "research",
+            "other"
+          ],
+          "description": "The role family whose expectations the gaps section measures against (see ROLE-BASELINES.md). Absent means software_engineering."
+        }
+      }
+    },
+    "repository": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "head_sha",
+        "analyzed_at",
+        "first_authored_commit",
+        "last_authored_commit",
+        "redacted"
+      ],
+      "properties": {
+        "name": { "type": ["string", "null"], "maxLength": 200 },
+        "remote": {
+          "type": ["string", "null"],
+          "pattern": "^(?!.*://[^/]*@)",
+          "maxLength": 500,
+          "description": "The public clone URL verify fetches. Never carries credentials: an https URL with a user or token in it is rejected."
+        },
+        "head_sha": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+        "analyzed_at": { "type": "string", "format": "date-time" },
+        "first_authored_commit": { "type": "string", "format": "date" },
+        "last_authored_commit": { "type": "string", "format": "date" },
+        "redacted": {
+          "type": "boolean",
+          "description": "True when the repository name and remote were withheld on purpose. A redacted proof cannot be reproduced by a recipient."
+        },
+        "context": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Calibrates the subject's footprint against the whole repository. Counts only, never other contributors' names.",
+          "properties": {
+            "total_commits": { "type": "integer", "minimum": 0 },
+            "total_authors": { "type": "integer", "minimum": 0 },
+            "subject_rank": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Position by authored commit count among email identities."
+            },
+            "since": {
+              "type": ["string", "null"],
+              "format": "date",
+              "description": "Start of the analysis window when one was given. The totals above count commits inside that window; null means full history."
+            }
+          }
+        },
+        "project": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["description"],
+          "description": "What the repository builds, for a stranger. A proof is per-project evidence, and the reader needs the project before the claims mean anything.",
+          "properties": {
+            "name": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 120,
+              "description": "The project's display name, used in the report title. Omit when redacted: it identifies the product."
+            },
+            "description": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 800,
+              "description": "2-4 factual sentences on what the repository builds: the product, its domain, its maturity. Describes the project, never the subject. When redacted is true, must not identify the company or product."
+            },
+            "first_commit": {
+              "type": "string",
+              "format": "date",
+              "description": "The repository's own first commit date: the project's age, not the subject's tenure."
+            },
+            "structure": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200,
+              "description": "One line on the repository's shape, e.g. 'production monorepo: 6 apps, 12 packages'. Omit when redacted if it would identify the repository."
+            },
+            "subject_slice": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 300,
+              "description": "One sentence locating the subject's slice of the project. Every number in it must appear in an evidence description."
+            },
+            "logo_path": {
+              "type": "string",
+              "pattern": "^(?![/:])(?!\\./)(?!.*\\.\\.)[^\\\\]*\\.svg$",
+              "maxLength": 300,
+              "description": "Repo-relative path of an in-tree SVG logo (at most 64 KB), read from head_sha and embedded as an inert image. Never a URL; never present when redacted."
+            }
+          }
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "authored_commits",
+        "lines_added",
+        "lines_removed",
+        "files_touched",
+        "active_days",
+        "span_days",
+        "ai_coauthored_commits",
+        "ai_assisted_commit_share"
+      ],
+      "properties": {
+        "authored_commits": { "type": "integer", "minimum": 0 },
+        "lines_added": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Authored insertions after excluding lockfiles, vendored, and generated paths."
+        },
+        "lines_removed": { "type": "integer", "minimum": 0 },
+        "files_touched": { "type": "integer", "minimum": 0 },
+        "active_days": { "type": "integer", "minimum": 0 },
+        "span_days": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Calendar days between the first and last authored commit dates."
+        },
+        "ai_coauthored_commits": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Authored commits carrying an AI co-author trailer. ai_assisted_commit_share is this number divided by authored_commits."
+        },
+        "ai_assisted_commit_share": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Share of authored commits carrying an AI co-author trailer. A signal for authorship classification, not a penalty. Trailers are voluntary."
+        },
+        "test_touches": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Authored file-touches on test paths (a file touched in three commits counts three)."
+        },
+        "test_files": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Distinct test files the subject touched."
+        },
+        "recent_commits_90d": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Authored commits in the 90 days before analyzed_at: the recency signal."
+        },
+        "activity_by_month": {
+          "type": "array",
+          "maxItems": 600,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["month", "commits"],
+            "properties": {
+              "month": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}$" },
+              "commits": { "type": "integer", "minimum": 0 }
+            }
+          },
+          "description": "Authored commits per calendar month, for the activity strip."
+        }
+      }
+    },
+    "skills": {
+      "type": "array",
+      "maxItems": 12,
+      "description": "Skim layer. Each skill aggregates claims; the claims carry the evidence. Scores and levels are the subject's self-assessment.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "level", "score", "claim_refs"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1, "maxLength": 80 },
+          "level": {
+            "enum": ["weak", "moderate", "strong", "very_strong"],
+            "description": "Derived from score: very_strong at 0.85 and above, strong at 0.70, moderate at 0.50, weak below."
+          },
+          "score": { "type": "number", "minimum": 0, "maximum": 1 },
+          "claim_refs": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 30,
+            "items": { "type": "string", "pattern": "^c[0-9]+$" }
+          }
+        }
+      }
+    },
+    "claims": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 30,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "claim",
+          "category",
+          "confidence",
+          "authorship",
+          "evidence_refs"
+        ],
+        "properties": {
+          "id": { "type": "string", "pattern": "^c[0-9]+$" },
+          "claim": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 400,
+            "description": "One falsifiable sentence about a demonstrated capability. Counts are written as digits, and every number must appear in the description of evidence the claim cites."
+          },
+          "short": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160,
+            "description": "The claim compressed to one line for the skill bullets. The renderer falls back to the full claim when absent."
+          },
+          "category": {
+            "enum": [
+              "language",
+              "framework",
+              "architecture",
+              "testing",
+              "debugging",
+              "refactoring",
+              "infrastructure",
+              "data",
+              "security",
+              "performance",
+              "product",
+              "process",
+              "ai_native",
+              "design",
+              "documentation",
+              "content",
+              "data_science",
+              "accessibility",
+              "localization",
+              "tooling",
+              "other"
+            ]
+          },
+          "confidence": {
+            "type": "number",
+            "minimum": 0.5,
+            "maximum": 1,
+            "description": "The subject's self-assessed confidence. Claims below 0.5 are not emitted. A claim backed by a single commit, file, or test reference caps at 0.6."
+          },
+          "authorship": {
+            "enum": ["hand_authored", "ai_directed", "mixed", "unknown"],
+            "description": "How the work was produced. ai_directed work demonstrates specification, review, and refinement: a capability in its own right."
+          },
+          "evidence_refs": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 12,
+            "items": { "type": "string", "pattern": "^e[0-9]+$" }
+          }
+        }
+      }
+    },
+    "evidence": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 100,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "type", "ref", "description"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^e[0-9]+$" },
+          "type": {
+            "enum": [
+              "commit",
+              "commit_range",
+              "file",
+              "directory",
+              "pull_request",
+              "test",
+              "document",
+              "asset",
+              "metric",
+              "pattern"
+            ],
+            "description": "document and asset are path references like file (a spec, a design source, an SVG); they exist so non-code work can be cited in its own terms."
+          },
+          "ref": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300,
+            "pattern": "^[^-]",
+            "description": "A full commit SHA, `a..b` for a range, a repo-relative path (never empty, `.`, `./`, absolute, or containing `..`), a PR number like #142, or a snake_case metric name. Never starts with `-`, so no ref can be read as a command-line option."
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 400,
+            "description": "What the reference shows. Every number in it must be re-derivable: bound by a measure, a commit's stats written as 'N insertions', 'N deletions', or 'N files', a range's commit count, a PR number, or found in a cited commit's subject line."
+          },
+          "measures": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 5,
+            "description": "Binds each number in the description to the value verify re-derives. `token` is the number exactly as written in the description (e.g. \"1,861\" or \"14%\").",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["token", "source", "field"],
+              "properties": {
+                "token": { "type": "string", "minLength": 1, "maxLength": 32 },
+                "source": { "enum": ["summary", "context", "scope", "blame"] },
+                "key": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 300,
+                  "description": "Required for scope (the glob) and blame (a file path at head_sha); absent otherwise."
+                },
+                "field": { "type": "string", "pattern": "^[a-z0-9_]+$" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "stack": {
+      "type": "array",
+      "maxItems": 30,
+      "description": "Keyword-scannable technology strip. Optional, but every entry must carry evidence: a technology with no resolvable reference does not ship.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "evidence_refs"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1, "maxLength": 80 },
+          "evidence_refs": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 12,
+            "items": { "type": "string", "pattern": "^e[0-9]+$" }
+          }
+        }
+      }
+    },
+    "capabilities": {
+      "type": "array",
+      "maxItems": 12,
+      "description": "The 'Demonstrated capabilities' list, authored: a plain-language label per capability with the claims (each at confidence 0.7 or above) that back it. The renderer falls back to claim categories when absent.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["label", "claim_refs"],
+        "properties": {
+          "label": { "type": "string", "minLength": 1, "maxLength": 80 },
+          "claim_refs": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 30,
+            "items": { "type": "string", "pattern": "^c[0-9]+$" }
+          }
+        }
+      }
+    },
+    "narrative": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Report paragraphs that need judgment and therefore live in the document, so the renderer stays a pure function.",
+      "properties": {
+        "authorship": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1200,
+          "description": "The 'How the work was produced' paragraph: states the AI co-author share, then what the history shows the subject doing around generated code. Every number in it must appear in an evidence description. Rendered only when ai_assisted_commit_share exceeds 0.1."
+        }
+      }
+    },
+    "gaps": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 20,
+      "description": "Capabilities the repository shows weak or no evidence of, measured against the subject's role family. Honest negatives are mandatory: a proof with no gaps does not validate.",
+      "items": { "type": "string", "minLength": 1, "maxLength": 400 }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["generator"],
+      "properties": {
+        "generator": {
+          "type": "string",
+          "minLength": 1,
+          "description": "proof-skill/<proof_version>."
+        },
+        "model": { "type": "string", "maxLength": 120 },
+        "environment": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["git", "node"],
+          "properties": {
+            "git": { "type": "string", "maxLength": 120 },
+            "node": { "type": "string", "maxLength": 40 }
+          },
+          "description": "The git and Node versions that produced the numbers. Verify reports them when a recount differs, to tell a tool difference from a false number."
+        },
+        "notes": { "type": "string", "maxLength": 1200 }
+      }
+    }
+  }
+}

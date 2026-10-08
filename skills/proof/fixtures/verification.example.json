@@ -1,0 +1,128 @@
+{
+  "verification_version": "0.3.0",
+  "proof_sha256": "5802a4bfeba38ecd3e0f79d16dc80d022f3dc03c2eee679810027b5767c755ca",
+  "verified_at": "2026-09-25T12:00:00Z",
+  "verified_by": "Example hiring team",
+  "environment": {
+    "tool": "proof-skill/0.3.0",
+    "git": "2.54.0",
+    "node": "v24.13.0"
+  },
+  "remote": null,
+  "head_ref": null,
+  "head_on_default_branch": null,
+  "outcome": "not_reproducible",
+  "reason": "The proof is redacted, so no public repository could be checked.",
+  "problems": [
+    {
+      "code": "redacted",
+      "message": "The repository name and remote are withheld."
+    }
+  ],
+  "counts": {
+    "evidence_total": 5,
+    "evidence_failed": 0,
+    "numbers_rederived": 0,
+    "numbers_self_reported": 0,
+    "numbers_unbacked": 0
+  },
+  "identity": {
+    "status": "unbound",
+    "account": null,
+    "signature": "absent",
+    "emails": [
+      {
+        "email": "ada@example.dev",
+        "status": "unbound",
+        "method": "unknown"
+      }
+    ]
+  },
+  "signals": null,
+  "evidence": [
+    {
+      "id": "e1",
+      "status": "unchecked",
+      "problems": [],
+      "numbers": [],
+      "ownership": null
+    },
+    {
+      "id": "e2",
+      "status": "unchecked",
+      "problems": [],
+      "numbers": [],
+      "ownership": null
+    },
+    {
+      "id": "e3",
+      "status": "unchecked",
+      "problems": [],
+      "numbers": [],
+      "ownership": null
+    },
+    {
+      "id": "e4",
+      "status": "unchecked",
+      "problems": [],
+      "numbers": [],
+      "ownership": null
+    },
+    {
+      "id": "e5",
+      "status": "unchecked",
+      "problems": [],
+      "numbers": [],
+      "ownership": null
+    }
+  ],
+  "claims": [
+    {
+      "id": "c1",
+      "problems": [],
+      "flags": [],
+      "audit": {
+        "verdict": "not_assessable",
+        "reason": "The cited directory and commit could not be opened, because the proof is redacted.",
+        "question": "Walk me through the discriminated-union event model: what did the API dispatch layer look like before it, and what broke when you changed it?",
+        "pointers": [
+          "proof:c1",
+          "proof:e1",
+          "proof:e2"
+        ]
+      }
+    },
+    {
+      "id": "c2",
+      "problems": [],
+      "flags": [],
+      "audit": {
+        "verdict": "not_assessable",
+        "reason": "The 17-commit range could not be opened, because the proof is redacted.",
+        "question": "Which module was hardest to convert to strict TypeScript, and how did you keep the public API stable while you did it?",
+        "pointers": [
+          "proof:c2",
+          "proof:e3"
+        ]
+      }
+    },
+    {
+      "id": "c3",
+      "problems": [],
+      "flags": [],
+      "audit": {
+        "verdict": "not_assessable",
+        "reason": "The component directory and the AI co-author counts could not be re-derived, because the proof is redacted.",
+        "question": "Pick one component that AI generated for you: what did you change in review, and why?",
+        "pointers": [
+          "proof:c3",
+          "proof:e4",
+          "proof:e5"
+        ]
+      }
+    }
+  ],
+  "notes": [
+    "The proof is redacted: nothing could be fetched, so every number is unchecked. Use the claims as interview material."
+  ]
+}

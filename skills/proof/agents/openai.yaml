@@ -1,0 +1,3 @@
+interface:
+  display_name: "Proof"
+  short_description: "Turn git history into claims a reader can check"

@@ -1,0 +1,174 @@
+{
+  "proof_version": "0.3.0",
+  "subject": {
+    "name": "Ada Example",
+    "identities": ["ada@example.dev"],
+    "headline": "TypeScript-focused product engineer who owns the shared type system and the component layer, and directs AI generation through hand-authored refinement.",
+    "role_family": "software_engineering"
+  },
+  "repository": {
+    "name": null,
+    "remote": null,
+    "head_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "analyzed_at": "2026-08-31T12:00:00Z",
+    "first_authored_commit": "2025-11-03",
+    "last_authored_commit": "2026-08-14",
+    "redacted": true,
+    "context": {
+      "total_commits": 6240,
+      "total_authors": 11,
+      "subject_rank": 3,
+      "since": null
+    },
+    "project": {
+      "description": "A subscription-billing platform for B2B software companies: it issues invoices, collects payments, and reports revenue. The codebase is a TypeScript monorepo serving one API service and one web application, in production since mid-2024.",
+      "first_commit": "2024-06-12",
+      "structure": "monorepo: 2 apps, 4 packages",
+      "subject_slice": "The subject's footprint concentrates in the shared type-system package and the web application's component layer."
+    }
+  },
+  "summary": {
+    "authored_commits": 412,
+    "lines_added": 38520,
+    "lines_removed": 12140,
+    "files_touched": 486,
+    "active_days": 158,
+    "span_days": 284,
+    "ai_coauthored_commits": 140,
+    "ai_assisted_commit_share": 0.34,
+    "test_touches": 61,
+    "test_files": 27,
+    "recent_commits_90d": 96,
+    "activity_by_month": [
+      { "month": "2025-11", "commits": 41 },
+      { "month": "2025-12", "commits": 38 },
+      { "month": "2026-01", "commits": 45 },
+      { "month": "2026-02", "commits": 52 },
+      { "month": "2026-03", "commits": 47 },
+      { "month": "2026-04", "commits": 40 },
+      { "month": "2026-05", "commits": 53 },
+      { "month": "2026-06", "commits": 44 },
+      { "month": "2026-07", "commits": 36 },
+      { "month": "2026-08", "commits": 16 }
+    ]
+  },
+  "skills": [
+    {
+      "name": "TypeScript",
+      "level": "strong",
+      "score": 0.82,
+      "claim_refs": ["c1", "c2"]
+    },
+    {
+      "name": "React",
+      "level": "very_strong",
+      "score": 0.9,
+      "claim_refs": ["c3"]
+    }
+  ],
+  "stack": [
+    { "name": "TypeScript", "evidence_refs": ["e1", "e3"] },
+    { "name": "React", "evidence_refs": ["e4"] }
+  ],
+  "capabilities": [
+    {
+      "label": "Type-system architecture",
+      "claim_refs": ["c1"]
+    },
+    {
+      "label": "Legacy migration and refactoring",
+      "claim_refs": ["c2"]
+    },
+    {
+      "label": "AI-directed component engineering",
+      "claim_refs": ["c3"]
+    }
+  ],
+  "claims": [
+    {
+      "id": "c1",
+      "claim": "Designed the shared type system that both the API and the web app consume.",
+      "short": "Designed the shared type system consumed by both the API and the web app.",
+      "category": "architecture",
+      "confidence": 0.9,
+      "authorship": "hand_authored",
+      "evidence_refs": ["e1", "e2"]
+    },
+    {
+      "id": "c2",
+      "claim": "Migrated the ingestion layer from JavaScript to strict TypeScript without breaking the public API.",
+      "short": "Migrated the ingestion layer from JavaScript to strict TypeScript without breaking the API.",
+      "category": "refactoring",
+      "confidence": 0.8,
+      "authorship": "mixed",
+      "evidence_refs": ["e3"]
+    },
+    {
+      "id": "c3",
+      "claim": "Built and maintains a reusable component system with 23 components behind a single variant API, largely by directing AI generation and refining the results.",
+      "short": "Built and maintains a 23-component system behind a single variant API, largely via AI-directed generation.",
+      "category": "ai_native",
+      "confidence": 0.85,
+      "authorship": "ai_directed",
+      "evidence_refs": ["e4", "e5"]
+    }
+  ],
+  "evidence": [
+    {
+      "id": "e1",
+      "type": "directory",
+      "ref": "packages/shared/src/types",
+      "description": "31 files in the shared types package, touched in 118 of the subject's commits.",
+      "measures": [
+        { "token": "31", "source": "scope", "key": "packages/shared/src/types/**", "field": "files" },
+        { "token": "118", "source": "scope", "key": "packages/shared/src/types/**", "field": "commits" }
+      ]
+    },
+    {
+      "id": "e2",
+      "type": "commit",
+      "ref": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "description": "Introduced the discriminated-union event model the API dispatch layer is built on."
+    },
+    {
+      "id": "e3",
+      "type": "commit_range",
+      "ref": "cccccccccccccccccccccccccccccccccccccccc..dddddddddddddddddddddddddddddddddddddddd",
+      "description": "17-commit migration sequence: tsconfig strict flags on, then module-by-module conversion with tests kept green."
+    },
+    {
+      "id": "e4",
+      "type": "directory",
+      "ref": "apps/web/src/components",
+      "description": "23 component files sharing one CVA-style variant convention.",
+      "measures": [
+        { "token": "23", "source": "scope", "key": "apps/web/src/components/**", "field": "files" }
+      ]
+    },
+    {
+      "id": "e5",
+      "type": "metric",
+      "ref": "ai_coauthor_trailers",
+      "description": "140 of 412 authored commits (34%) carry an AI co-author trailer, followed by subject-authored refactor, test, and fix commits on the same files.",
+      "measures": [
+        { "token": "140", "source": "summary", "field": "ai_coauthored_commits" },
+        { "token": "412", "source": "summary", "field": "authored_commits" },
+        { "token": "34%", "source": "summary", "field": "ai_assisted_commit_share" }
+      ]
+    }
+  ],
+  "narrative": {
+    "authorship": "34% of authored commits carry an AI co-author trailer, concentrated in the component-system commits. The history around them shows the subject specifying the component API, then reviewing and refactoring the generated output, adding tests, and shipping the result to production. The demonstrated capability is directing generation at scale and owning the result end to end: specification, review, refinement, testing, and shipping."
+  },
+  "gaps": [
+    "distributed systems",
+    "infrastructure and deployment ownership",
+    "database schema design"
+  ],
+  "provenance": {
+    "generator": "proof-skill/0.3.0",
+    "model": "claude-fable-5",
+    "environment": { "git": "2.54.0", "node": "v24.13.0" },
+    "notes": "Synthetic example shipped with the skill. SHAs are placeholders; run the validator without --git against this file. Redacted on purpose: repository name and remote are null, and the project description names the domain, not the company. A redacted proof cannot be reproduced by a recipient."
+  }
+}

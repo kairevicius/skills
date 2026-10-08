@@ -24,10 +24,11 @@ npx skills@latest add kairevicius/skills --skill optical-balance
 
 Add `-a <agent>` to pick agents up front, for example `-a codex -a cursor`, and `-g` to install for your user instead of the current project. Without the CLI, copy a folder from `skills/` into your agent's skills folder.
 
-A skill that ships a script lists its setup in its `SKILL.md`, and your agent follows it. `optical-balance` needs Node 18.17 or later. If its one dependency is missing, its script prints the exact `npm install` command for the folder your agent installed it in.
+A skill that ships a script lists its setup in its `SKILL.md`, and your agent follows it. `optical-balance` needs Node 18.17 or later. If its one dependency is missing, its script prints the exact `npm install` command for the folder your agent installed it in. `proof` has no dependencies; it needs git 2.40 or later, Node 18.17 or later, and `ssh-keygen` to sign and verify.
 
 ## Reference
 
+- **[proof](./skills/proof/SKILL.md)** — Turn one person's work in a git repository into claims backed by commits and files a reader can check, and re-derive a proof someone sent you before you trust it. Built for hiring: the recipient checks everything with their own copy.
 - **[optical-balance](./skills/optical-balance/SKILL.md)** — Center and size logos and icons by what the eye sees, not by the bounding box. It measures the visual center and the perceived size, gives you the CSS offset, and checks the rendered result. [Site](https://kairevicius.github.io/skills/optical-balance/) · [Write-up](https://kairevicius.github.io/skills/optical-balance/write-up.html) · [Demo](https://kairevicius.github.io/skills/optical-balance/demo.html)
 
 ## How the skills are built
@@ -45,6 +46,7 @@ node scripts/check-repo.mjs                         # structure, frontmatter, Co
 cd skills/optical-balance/scripts
 npm ci && npm test                                  # the skill's regression tests
 cd ../../.. && node sites/optical-balance/build-docs.mjs   # its site, in sites/optical-balance/dist
+cd skills/proof/scripts && npm ci && npm test        # proof's tests: fixture repositories, signing, verify
 ```
 
 Each skill lives in `skills/<name>/`, which is the folder the installer copies. A skill's website, with its larger sources, lives in `sites/<name>/` and does not install. On every push to `main`, the GitHub Pages workflow runs the tests and publishes the sites. To turn it on, set the Pages source to "GitHub Actions" in the repository settings.
