@@ -10,7 +10,7 @@
   },
   "scripts": {
     "test": "node --test test.mjs v2-test.mjs",
-    "test:browser": "node browser-test.mjs",
+    "test:browser": "node --test browser-launch-test.mjs && node browser-test.mjs",
     "validate": "node validate.mjs",
     "kit": "node preference-kit.mjs"
   },

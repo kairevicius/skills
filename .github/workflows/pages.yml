@@ -37,6 +37,11 @@ jobs:
       - name: Test optical-balance
         working-directory: skills/optical-balance/scripts
         run: npm ci && npm test
+      - name: Test optical-balance in Chromium
+        working-directory: skills/optical-balance/scripts
+        run: |
+          npx playwright-core install --with-deps chromium
+          npm run test:browser
       - name: Test proof
         working-directory: skills/proof/scripts
         run: npm ci && npm test

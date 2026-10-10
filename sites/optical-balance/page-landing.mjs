@@ -133,7 +133,7 @@ ${pair("An icon beside a label", "button-before", "button-after", `The fix is le
 
 <section class="block" aria-labelledby="install">
 <h2 id="install">Install</h2>
-<p>You need Node 18.17 or later and an agent that reads skills, such as Claude Code, Codex, Cursor, OpenCode, or Gemini CLI. Install the skill:</p>
+<p>You need Node <code>^18.17.0 || ^20.3.0 || &gt;=21.0.0</code> and an agent that reads skills, such as Claude Code, Codex, Cursor, OpenCode, or Gemini CLI. Install the skill:</p>
 <pre>${installCommand("one-skill", "optical-balance")}</pre>
 <p>The CLI asks which agents to install it for. Its one dependency, sharp, installs on first use: the skill tells your agent how, and the script prints the exact command if it is missing.</p>
 <p>Then ask your agent in your own words, for example:</p>

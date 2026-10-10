@@ -24,7 +24,7 @@ npx skills@latest add kairevicius/skills --skill optical-balance
 
 Add `-a <agent>` to pick agents up front, for example `-a codex -a cursor`, and `-g` to install for your user instead of the current project. Without the CLI, copy a folder from `skills/` into your agent's skills folder.
 
-A skill that ships a script lists its setup in its `SKILL.md`, and your agent follows it. `optical-balance` needs Node 18.17 or later. If its one dependency is missing, its script prints the exact `npm install` command for the folder your agent installed it in. `proof` has no dependencies; it needs git 2.40 or later, Node 18.17 or later, and `ssh-keygen` to sign and verify.
+A skill that ships a script lists its setup in its `SKILL.md`, and your agent follows it. `optical-balance` needs Node `^18.17.0 || ^20.3.0 || >=21.0.0`. If its one dependency is missing, its script prints the exact `npm ci` command for the folder your agent installed it in. `proof` has no dependencies; it needs git 2.40 or later, Node 18.17 or later, and `ssh-keygen` to sign and verify.
 
 ## Reference
 

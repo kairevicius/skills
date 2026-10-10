@@ -116,3 +116,26 @@ test('tile and frame JSON expose finite readings and failed gate status',()=>{
  }
  assert.notEqual(cli('place',play,'--container','100','--element','60','--offset',',').status,0);
 });
+
+test('held-out manifest renders every archived shape with reproducible readings', async () => {
+ const { readFile } = await import('node:fs/promises');
+ const { createHash } = await import('node:crypto');
+ const dir = new URL('../fixtures/validation/', import.meta.url);
+ const manifest = JSON.parse(await readFile(new URL('manifest.json', dir), 'utf8'));
+ const recorded = JSON.parse(await readFile(new URL('recorded.json', dir), 'utf8'));
+ assert.ok(manifest.files.length >= 10);
+ assert.equal(new Set(manifest.files).size, manifest.files.length);
+ assert.deepEqual(recorded.results.map(r => r.file), manifest.files);
+ for (const name of manifest.files) {
+  assert.ok(!['square-fill.svg','circle-fill.svg','diamond-fill.svg','star-fill.svg','triangle-fill.svg','heart-fill.svg'].includes(name), name);
+  const path = new URL('../icons/'+name, dir);
+  const expected = recorded.results.find(r => r.file === name);
+  assert.equal(createHash('sha256').update(await readFile(path)).digest('hex'), expected.sha256);
+  const placed = await renderPlacement(path.pathname, { container: manifest.container, element: manifest.element, plate: manifest.background, fg: manifest.foreground, scale: manifest.scale });
+  assert.equal(placed.before.pct, expected.beforePct);
+  assert.equal(placed.after.pct, expected.afterPct);
+  assert.deepEqual(placed.offset, expected.offset);
+  assert.equal(expected.pass, true);
+  assert.ok(placed.after.pct <= 1, name);
+ }
+});

@@ -108,9 +108,16 @@ Those historical counts cannot be reproduced, so they are withdrawn as validatio
 Do not reconstruct or invent their results from the summary.
 
 The shipped manifest in `fixtures/validation/manifest.json` distinguishes this missing corpus from a reproducible replacement set.
-The replacement uses bell, heart, and hexagon, separate from logo tuning and the four-shape size calibration.
+The replacement uses bell, hexagon, cloud, moon, flag, bookmark, chat, lightning, shield, and umbrella.
+These shapes were outside logo tuning, demo artwork, and the four-shape size calibration.
+Heart is excluded because the demo already uses it.
+The manifest records Bootstrap Icons v1.11.3 source URLs and the MIT license URL.
+The archived license in `fixtures/icons/LICENSE` matches that upstream release.
 It is not the original held-out corpus and is not independent perceptual validation.
 Run `cd scripts && npm run validate` to regenerate `fixtures/validation/recorded.json`.
+The recorded run passes 10 of 10 shapes at the 1% gate.
+The maximum off-center reading is 6.678654% before placement and 0.177497% afterward.
+These values come from `cd scripts && npm run validate`; raw readings and artwork hashes are in `recorded.json`.
 Placement and scoring share the same formula. Passing gates therefore checks numerical consistency and is circular for perception.
 
 Use [KIT.md](KIT.md) for independent blind preference testing.

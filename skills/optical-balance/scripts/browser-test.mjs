@@ -11,9 +11,14 @@ const fixture = new URL('fixtures/icons/triangle-fill.svg', root).pathname;
 const placement = await renderPlacement(fixture, { container: 96, element: 60, plate: '#fff', fg: '#111', scale: 2 });
 const icon = await readFile(fixture, 'utf8');
 const css = `translate(${placement.offset.x}%, ${placement.offset.y}%)`;
-const browserRoot = process.env.PLAYWRIGHT_BROWSERS_PATH;
-assert.ok(browserRoot, 'Set PLAYWRIGHT_BROWSERS_PATH to your cached browser folder');
-const browser = await chromium.launch({ executablePath: join(browserRoot, 'chromium-1243/chrome-linux64/chrome'), args: ['--no-sandbox'] });
+const executablePath = process.env.OPTICAL_CHROMIUM;
+let browser;
+try {
+    browser = await chromium.launch({ ...(executablePath ? { executablePath } : {}), args: ['--no-sandbox'] });
+} catch (error) {
+    if (!/executable.*(doesn.t exist|not found)|ENOENT/i.test(error.message)) throw error;
+    throw new Error(`Chromium was not found${executablePath ? ` at OPTICAL_CHROMIUM=${executablePath}` : ' by playwright-core'}. Run npx playwright-core install chromium from this scripts folder, or set OPTICAL_CHROMIUM to an installed browser.`, { cause: error });
+}
 try {
     const context = await browser.newContext({ deviceScaleFactor: 2, viewport: { width: 500, height: 300 } });
     const page = await context.newPage();
