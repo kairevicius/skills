@@ -8,11 +8,23 @@ The script reads a raster. It rasterizes vector input first, at a 1024px longest
 
 ```
 luma         = 0.299 R + 0.587 G + 0.114 B       Rec. 601
-contrast     = |luma − background luma| / 255    0 to 1
+contrast     = min(1, max(luminance contrast, OKLab chroma distance / 0.25))
              skip the pixel when contrast ≤ 0.02 (it is background)
 mass weight  w = alpha × contrast²               for position
 size weight  s = alpha × contrast                for size
 ```
+
+Contrast means perceptual colour distance from the background, using OKLab chroma and the existing luminance scale.
+
+The conversion follows [the OKLab reference](https://bottosson.github.io/posts/oklab/), after linearising sRGB.
+
+OKLab chroma distance is `sqrt((a − background a)² + (b − background b)²)`.
+Luminance contrast remains `abs(luma − background luma) / 255`.
+The 0.25 normalisation is a heuristic scale, not measured human preference.
+Reproduce it with `node --test scripts/v2-test.mjs`; the saturated-orange test checks the resulting weight.
+Neutral colours have zero chroma, so greyscale weights stay unchanged.
+Alpha multiplies each weight; flattened pixels use their composited colour.
+All ink, accent, and crop thresholds use this same contrast.
 
 Position and size need different weights:
 

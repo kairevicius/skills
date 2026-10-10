@@ -41,6 +41,7 @@ These are the words that the script prints. Use each one with this meaning only.
 
 - **element size**: the size of the file's own box as the layout places it, padding included. It is the box of the `<img>` or `<svg>`, not of its ink.
 - **box center**: the center of the image as the layout places it.
+- **contrast**: perceptual colour distance from the background: `min(1, max(luminance contrast, OKLab chroma distance / 0.25))`.
 - **ink**: pixels with a contrast above 0.02 against the background.
 - **faint ink**: ink with a contrast below 0.6. Strong ink has a contrast of 0.6 or more.
 - **accent discount**: when faint ink is at most 1/3 of the ink, the faint ink is an accent and counts for less.
@@ -182,7 +183,7 @@ The browser regression reproduces this procedure: `npm run test:browser` in the 
 
 - **Alpha-only weights** under-correct a two-tone mark, because they count faint ink at full weight. Keep the default weights.
 - **Equal ink area** (`--strength 1`) shrinks wide wordmarks until they look smaller than a compact solid mark. Keep the default power of 0.5.
-- **Saturated color.** The method measures luminance contrast only. A saturated red and a gray of the same luminance get the same weight, but the red looks heavier. Treat the size of a strongly colored mark as a first value, and confirm it in context.
+- **Saturated color.** OKLab chroma contributes to perceptual colour distance. The normalisation remains a heuristic; confirm strongly coloured marks in context.
 
 ## Files
 

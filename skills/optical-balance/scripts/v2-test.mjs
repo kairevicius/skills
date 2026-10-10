@@ -139,3 +139,58 @@ test('held-out manifest renders every archived shape with reproducible readings'
   assert.ok(placed.after.pct <= 1, name);
  }
 });
+
+test('colour Amazon keeps the mono placement direction without a large downward fix', async () => {
+ const path = name => new URL('../fixtures/colour/'+name, import.meta.url).pathname;
+ const options = {container:200, element:112, plate:'#ffffff', shape:'rect'};
+ const colour = await renderPlacement(path('amazon-color.svg'), options);
+ const mono = await renderPlacement(path('amazon.svg'), options);
+ assert.ok(Math.abs(colour.offset.y) < 4, JSON.stringify(colour.offset));
+ assert.ok(colour.offset.x < 0 && mono.offset.x < 0);
+ assert.ok(colour.offset.y > 0 && mono.offset.y > 0);
+ assert.ok(Math.abs(colour.offset.y-mono.offset.y) < 3);
+ assert.ok(colour.after.pct <= 1);
+});
+
+test('saturated orange contributes mass and stays in the strong-ink extent', () => {
+ const m = measure({width:2,height:1,data:Buffer.from([0,0,0,255,255,153,0,255])},255);
+ assert.equal(m.extentBox.width,2);
+ assert.ok(m.mass.x > .8 && m.mass.x < 1);
+ assert.ok(m.contrastArea > 1.6);
+});
+
+test('all neutral greys retain their original mass and size weights including alpha', () => {
+ for (const bg of [0,1e-7,17,17.5,128,255]) for (let grey=0;grey<=255;grey++) {
+  const contrast = Math.abs((.299*grey+.587*grey+.114*grey)-bg)/255;
+  if (contrast <= .02) continue;
+  const m = measure({width:1,height:1,data:Buffer.from([grey,grey,grey,128])},bg);
+  assert.ok(Math.abs(m.massArea-128/255*contrast*contrast)<1e-12);
+  assert.ok(Math.abs(m.contrastArea-128/255*contrast)<1e-12);
+ }
+});
+
+test('equal-luminance colour remains ink against a grey background through trim and warnings', async () => {
+ const cyan = file('equal-luminance.svg', svg('<rect x="20" y="20" width="60" height="60" fill="#00c2ff"/>'));
+ const m = await measureFile(cyan, {bg:'#8f8f8f',trim:true});
+ assert.equal(m.inkBox.width,614);
+ assert.equal(m.warnings.length,0);
+ assert.ok(m.massArea > 100000);
+ const orange = file('orange-on-orange.svg',svg('<rect width="100" height="100" fill="#ff9900"/>'));
+ await assert.rejects(measureFile(orange,{bg:'#ff9900'}),/no ink/);
+ const transparent = measure({width:1,height:1,data:Buffer.from([255,153,0,128])},255);
+ const opaque = measure({width:1,height:1,data:Buffer.from([255,153,0,255])},255);
+ assert.ok(Math.abs(transparent.massArea/opaque.massArea-128/255)<1e-12);
+});
+
+test('every weighting command accepts colour and preserves finite JSON readings', () => {
+ const amazon = new URL('../fixtures/colour/amazon-color.svg',import.meta.url).pathname;
+ for (const cmd of ['measure','place','strip','equalize','tile','check','frame']) {
+  const r = cli(cmd,amazon,'--container','200','--element','112','--bg','#fff','--plate','#fff','--scale','2','--out',join(tmp,'colour-'+cmd+'.png'),'--json');
+  assert.ok([0,1].includes(r.status),cmd+': '+r.stderr);
+  const result = JSON.parse(r.stdout);
+  const reading = cmd==='place'?result.after.pct:cmd==='strip'?result.logos[0].perceived:cmd==='check'?result[0].pct:cmd==='tile'||cmd==='frame'?result.result.massArea:result[0].massArea;
+  assert.ok(Number.isFinite(reading) && reading >= 0,cmd+': '+r.stdout);
+  if (cmd==='place') assert.ok(Math.abs(result.offset.y)<4);
+  if (cmd==='measure') assert.ok(result[0].accentShare<.1);
+ }
+});

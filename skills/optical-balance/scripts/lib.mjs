@@ -13,6 +13,29 @@ const positive = (n, name) => { if (!Number.isFinite(n) || n <= 0) throw new Err
 /** Rec.601 luma of an sRGB pixel, 0..255. */
 export const luminance = (r, g, b) => 0.299 * r + 0.587 * g + 0.114 * b;
 
+const linearRgb = Array.from({ length: 256 }, (_, v) => {
+    const c = v / 255;
+    return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+});
+
+function chroma(r, g, b) {
+    if (r === g && g === b) return { a: 0, b: 0 };
+    const linear = v => linearRgb[v] ?? (v / 255 <= 0.04045 ? v / 255 / 12.92 : ((v / 255 + 0.055) / 1.055) ** 2.4);
+    const R = linear(r), G = linear(g), B = linear(b);
+    const l = Math.cbrt(0.4122214708 * R + 0.5363325363 * G + 0.0514459929 * B);
+    const m = Math.cbrt(0.2119034982 * R + 0.6806995451 * G + 0.1073969566 * B);
+    const t = Math.cbrt(0.0883024619 * R + 0.2817188376 * G + 0.6299787005 * B);
+    return { a: 1.9779984951 * l - 2.4285922050 * m + 0.4505937099 * t,
+        b: 0.0259040371 * l + 0.7827717662 * m - 0.8086757660 * t };
+}
+
+export function perceptualContrast(r, g, b, background) {
+    const color = typeof background === "number" ? { r: background, g: background, b: background, lum: background } : background;
+    const foregroundChroma = chroma(r, g, b), backgroundChroma = chroma(color.r, color.g, color.b);
+    const chromaContrast = Math.hypot(foregroundChroma.a - backgroundChroma.a, foregroundChroma.b - backgroundChroma.b) / 0.25;
+    return Math.min(1, Math.max(Math.abs(luminance(r, g, b) - color.lum) / 255, chromaContrast));
+}
+
 /**
  * Ink below this contrast against the background is a candidate accent: the
  * eye registers it, but faintly next to the mark's dominant tone.
@@ -111,7 +134,7 @@ export async function loadRaster(file, { maxEdge = DEFAULT_RASTER_EDGE, trim = f
     const raw = await toRaw(png);
     const full = { width: raw.width, height: raw.height, png, raw };
     if (!trim) return { png, raw, format: meta.format, full };
-    return { ...(await cropToInk(png, raw, parseColor(bg).lum)), format: meta.format, full };
+    return { ...(await cropToInk(png, raw, parseColor(bg))), format: meta.format, full };
 }
 
 /**
@@ -119,14 +142,14 @@ export async function loadRaster(file, { maxEdge = DEFAULT_RASTER_EDGE, trim = f
  * Unlike a trim against the corner pixel, this keeps an opaque tile that
  * contrasts with the background, and it never crops into the artwork.
  */
-export async function cropToInk(png, raw, bgLum, backgroundContrast = BACKGROUND_CONTRAST) {
+export async function cropToInk(png, raw, background, backgroundContrast = BACKGROUND_CONTRAST) {
     const { data, width, height } = raw;
     let left = width, top = height, right = -1, bottom = -1;
     for (let y = 0; y < height; y++) {
         for (let x = 0; x < width; x++) {
             const i = (y * width + x) * 4;
             if (data[i + 3] <= TRIM_THRESHOLD) continue;
-            if (Math.abs(luminance(data[i], data[i + 1], data[i + 2]) - bgLum) / 255 <= backgroundContrast) continue;
+            if (perceptualContrast(data[i], data[i + 1], data[i + 2], background) <= backgroundContrast) continue;
             if (x < left) left = x;
             if (x > right) right = x;
             if (y < top) top = y;
@@ -167,7 +190,7 @@ export function detectBackground(raw) {
     let match = 0;
     for (const p of ring) {
         const i = p * 4;
-        if (data[i + 3] >= 128 && Math.abs(luminance(data[i], data[i + 1], data[i + 2]) - color.lum) / 255 <= BACKGROUND_CONTRAST) match++;
+        if (data[i + 3] >= 128 && perceptualContrast(data[i], data[i + 1], data[i + 2], color) <= BACKGROUND_CONTRAST) match++;
     }
     return { opaque: true, color, hex: toHex(color), share: match / ring.length };
 }
@@ -182,7 +205,7 @@ function holdsArtwork(raw, own) {
     for (let i = 0; i < data.length; i += 4) {
         if (data[i + 3] < 128) continue;
         visible++;
-        if (Math.abs(luminance(data[i], data[i + 1], data[i + 2]) - own.color.lum) / 255 > BACKGROUND_CONTRAST) other++;
+        if (perceptualContrast(data[i], data[i + 1], data[i + 2], own.color) > BACKGROUND_CONTRAST) other++;
     }
     return visible > 0 && other / visible >= 0.02;
 }
@@ -215,7 +238,7 @@ export function inputWarnings(raw, bg) {
     for (let i = 0; i < data.length; i += 4) {
         if (data[i + 3] < 128) continue;
         visible++;
-        const c = Math.abs(luminance(data[i], data[i + 1], data[i + 2]) - color.lum) / 255;
+        const c = perceptualContrast(data[i], data[i + 1], data[i + 2], color);
         if (c > BACKGROUND_CONTRAST) ink++;
         if (c > maxContrast) maxContrast = c;
     }
@@ -246,9 +269,9 @@ export async function rasterizeSvg(svg, { scale = 1 } = {}) {
 }
 
 /**
- * Measure an element against the background luminance it renders on.
+ * Measure an element against the background colour it renders on.
  *
- * For each pixel: contrast = |luma - bgLum| / 255 and weight = alpha *
+ * For each pixel: contrast = perceptualContrast(pixel, background) and weight = alpha *
  * contrast^2. The mass centroid is the weighted centroid. Squaring the
  * contrast is how ink competes for the eye: at half contrast a pixel earns a
  * quarter of the weight, so a faint accent hangs off the dominant mass instead
@@ -279,7 +302,9 @@ export function measure(raw, bgLum, { blend = CENTER_BLEND, forceDiscount = fals
     positive(width, "width"); positive(height, "height");
     if (!Number.isInteger(width) || !Number.isInteger(height)) throw new Error("raster dimensions must be integers");
     if (data.length !== width * height * 4) throw new Error("invalid RGBA buffer");
-    if (!Number.isFinite(bgLum) || bgLum < 0 || bgLum > 255) throw new Error("invalid background luminance");
+    const background = typeof bgLum === "number" ? { r: bgLum, g: bgLum, b: bgLum, lum: bgLum } : bgLum;
+    const backgroundLum = background?.lum;
+    if (!Number.isFinite(backgroundLum) || backgroundLum < 0 || backgroundLum > 255) throw new Error("invalid background luminance");
     if (!Number.isFinite(blend) || blend < 0 || blend > 1 || !Number.isFinite(backgroundContrast) || backgroundContrast < 0 || backgroundContrast >= 1) throw new Error("invalid measurement options");
     let w = 0, wx = 0, wy = 0;
     let aw = 0, ax = 0, ay = 0;
@@ -292,7 +317,7 @@ export function measure(raw, bgLum, { blend = CENTER_BLEND, forceDiscount = fals
             const i = (y * width + x) * 4;
             const a = data[i + 3];
             if (a <= TRIM_THRESHOLD) continue;
-            const contrast = Math.abs(luminance(data[i], data[i + 1], data[i + 2]) - bgLum) / 255;
+            const contrast = perceptualContrast(data[i], data[i + 1], data[i + 2], background);
             if (contrast <= backgroundContrast) continue;
             const alpha = a / 255;
             const weight = alpha * contrast * contrast;
@@ -334,7 +359,7 @@ export function measure(raw, bgLum, { blend = CENTER_BLEND, forceDiscount = fals
     return {
         width,
         height,
-        bgLum,
+        bgLum: backgroundLum,
         box,
         alphaCentroid,
         massCentroid,
@@ -365,8 +390,8 @@ export function measure(raw, bgLum, { blend = CENTER_BLEND, forceDiscount = fals
 export async function measureFile(file, { bg = "255", trim = false, maxEdge, blend, tolerance, fg } = {}) {
     const loaded = await loadRaster(file, { maxEdge, fg });
     const { color, notes } = resolveBackground(bg, loaded.raw);
-    const { png, raw } = trim ? await cropToInk(loaded.png, loaded.raw, color.lum, tolerance) : loaded;
-    const m = measure(raw, color.lum, { blend, backgroundContrast: tolerance });
+    const { png, raw } = trim ? await cropToInk(loaded.png, loaded.raw, color, tolerance) : loaded;
+    const m = measure(raw, color, { blend, backgroundContrast: tolerance });
     return { file, format: loaded.format, color, png, raw, full: { width: loaded.raw.width, height: loaded.raw.height }, ...m, warnings: [...notes, ...inputWarnings(loaded.raw, color)] };
 }
 
@@ -419,7 +444,7 @@ export async function renderPlacement(file, {
     const own = detectBackground(artRaw);
     let inside = null;
     if (own.opaque && own.share >= BORDER_UNIFORM && holdsArtwork(artRaw, own)) {
-        const m = measure(artRaw, own.color.lum, { blend });
+        const m = measure(artRaw, own.color, { blend });
         const off = Math.hypot(m.visual.x - m.box.x, m.visual.y - m.box.y);
         inside = { backdrop: own.hex, pct: (off / Math.min(pw, ph)) * 100, offset: { x: m.offsetPct.x, y: m.offsetPct.y } };
     }
@@ -436,7 +461,7 @@ export async function renderPlacement(file, {
         return png;
     };
     const score = async (png) => {
-        const m = measure(await toRaw(png), color.lum, { blend });
+        const m = measure(await toRaw(png), color, { blend });
         const px = Math.hypot(m.visual.x - m.box.x, m.visual.y - m.box.y);
         return { m, pct: (px / Math.min(W, H)) * 100, px: px / scale };
     };
@@ -444,7 +469,7 @@ export async function renderPlacement(file, {
     const before = await bake(0, 0);
     let dx, dy;
     if (offset === "auto") {
-        const m = measure(await toRaw(art), color.lum, { blend });
+        const m = measure(await toRaw(art), color, { blend });
         dx = clampX(m.offset.x); dy = clampY(m.offset.y);
         for (let i = 0; i < passes; i++) {
             const r = (await score(await bake(dx, dy))).m;
@@ -480,7 +505,7 @@ export async function renderFrame(file, { size = 256, bg = "0", tolerance = 0.15
     const color = parseColor(bg);
     const { png, raw } = await loadRaster(file, { maxEdge: 2048 });
     const options = { backgroundContrast: tolerance, forceDiscount: true };
-    const source = measure(raw, color.lum, options);
+    const source = measure(raw, color, options);
     positive(size, "size"); positive(zoom, "zoom");
     if (zoom > 1 || !["visual", "box"].includes(centering)) throw new Error("invalid framing options");
     const side = Math.max(1, Math.round(Math.min(raw.width, raw.height) * zoom));
@@ -503,7 +528,7 @@ export async function renderFrame(file, { size = 256, bg = "0", tolerance = 0.15
         const want = { x: source.visual.x - side / 2, y: source.visual.y - side / 2 };
         clamped = clampX(want.x) !== Math.round(want.x) || clampY(want.y) !== Math.round(want.y);
         for (let i = 0; i < passes; i++) {
-            const m = measure(await toRaw(await build(left, top)), color.lum, options);
+            const m = measure(await toRaw(await build(left, top)), color, options);
             const dx = ((m.visual.x - size / 2) * side) / size;
             const dy = ((m.visual.y - size / 2) * side) / size;
             const nextLeft = clampX(left + dx), nextTop = clampY(top + dy);
@@ -514,7 +539,7 @@ export async function renderFrame(file, { size = 256, bg = "0", tolerance = 0.15
         }
     }
     const framed = await build(left, top);
-    const result = measure(await toRaw(framed), color.lum, options);
+    const result = measure(await toRaw(framed), color, options);
     return { png: framed, source, crop: { left, top, side }, clamped, result, bg: color };
 }
 
@@ -603,7 +628,7 @@ export async function renderTile(file, { size = 256, art = 0.76, plate = "#fffff
     const trimmed = await sharp(png).metadata();
     const enlarged = Math.max(raw.width / trimmed.width, raw.height / trimmed.height);
     if (format !== "svg" && enlarged > 1.05) warnings.push(`The raster source is enlarged ${enlarged.toFixed(1)}x to fill the art box, so its edges blur. Use an SVG or a larger PNG, or bake at the device pixel ratio with a larger --size.`);
-    const m = measure(raw, color.lum, { blend, forceDiscount: centering === "forced" });
+    const m = measure(raw, color, { blend, forceDiscount: centering === "forced" });
     const anchor = centering === "visual" || centering === "forced" ? m.visual
         : centering === "mass" ? m.massCentroid
         : centering === "alpha" ? m.alphaCentroid
@@ -625,7 +650,7 @@ export async function renderTile(file, { size = 256, art = 0.76, plate = "#fffff
         // where the artwork measured alone put it. Re-measure the tile and correct
         // until the placement stops moving or the inset clamp holds it.
         for (let i = 0; i < passes; i++) {
-            const r = measure(await toRaw(tile), color.lum, { blend, forceDiscount: centering === "forced" });
+            const r = measure(await toRaw(tile), color, { blend, forceDiscount: centering === "forced" });
             const nextLeft = Math.min(Math.max(Math.round(left - (r.visual.x - r.box.x)), inset), Math.max(inset, inset + artBox - raw.width));
             const nextTop = Math.min(Math.max(Math.round(top - (r.visual.y - r.box.y)), inset), Math.max(inset, inset + artBox - raw.height));
             if (nextLeft === left && nextTop === top) break;
@@ -634,7 +659,7 @@ export async function renderTile(file, { size = 256, art = 0.76, plate = "#fffff
             tile = await bake(left, top);
         }
     }
-    const result = measure(await toRaw(tile), color.lum, { blend, forceDiscount: centering === "forced" });
+    const result = measure(await toRaw(tile), color, { blend, forceDiscount: centering === "forced" });
     return { png: tile, artwork: m, placed: { left, top }, result, plate: color, warnings };
 }
 
@@ -677,7 +702,7 @@ export async function renderStrip(files, {
     if (canvasWidth) canvasWidth *= scale;
     const loaded = await Promise.all(files.map(async (file) => {
         const { raw, full, format } = await loadRaster(file, { trim: true, bg, fg });
-        return { file, format, fullPng: full.png, full: { width: full.width, height: full.height }, ...measure(raw, color.lum), warnings: inputWarnings(full.raw, color) };
+        return { file, format, fullPng: full.png, full: { width: full.width, height: full.height }, ...measure(raw, color), warnings: inputWarnings(full.raw, color) };
     }));
     const rows = equalize(loaded, { height, maxWidth, strength: sizing === "visual" ? strength : 0, target, metric, grow });
     const perRow = Math.max(1, Math.min(columns, rows.length));
@@ -688,8 +713,8 @@ export async function renderStrip(files, {
         const filePng = await sharp(r.fullPng).resize(W, H, { fit: "fill", kernel: "lanczos3" }).png().toBuffer();
         const flattened = await sharp(filePng).flatten({ background: toHex(color) }).png().toBuffer();
         const fileRaw = await toRaw(flattened);
-        const m = measure(fileRaw, color.lum);
-        const ink = await cropToInk(flattened, fileRaw, color.lum);
+        const m = measure(fileRaw, color);
+        const ink = await cropToInk(flattened, fileRaw, color);
         const cut = ink.crop ?? { left: 0, top: 0, width: W, height: H };
         return { r, k, W, H, m, png: ink.png, cut, w: cut.width, h: cut.height };
     };
@@ -765,7 +790,7 @@ export async function renderStrip(files, {
         r.render = { png: s.png, width: s.w, height: s.h };
         r.scale = s.k;
         const final = await sharp(png).extract({ left: r.placed.left, top: r.placed.top, width: s.w, height: s.h }).png().toBuffer();
-        r.perceived = measure(await toRaw(final), color.lum).perceivedSize / scale;
+        r.perceived = measure(await toRaw(final), color).perceivedSize / scale;
         r.css = {
             // The whole file as the page sets it, the ink inside it, and the optical move of the file box.
             file: { width: s.W / scale, height: s.H / scale },

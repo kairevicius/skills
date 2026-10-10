@@ -100,7 +100,7 @@ ${MOTION_CSS}
 <h2 id="fixes">What it fixes</h2>
 <p>Each pair is real output. Off center is the distance from the visual center to the container center, as a percentage of the container's shorter side.</p>
 <div class="examples">
-${pair("A logo in a tile", "amazon-box", "amazon-visual", `The letters move down ${N.amazon.dyPct}% of the mark's height, and the smile hangs below them.`, "Amazon wordmark centered by its box on a tile", "Amazon wordmark centered optically on a tile")}
+${pair("A logo in a tile", "amazon-box", "amazon-visual", `The mark moves down ${N.amazon.dyPct}% of its height, including the orange smile's perceptual weight.`, "Amazon wordmark centered by its box on a tile", "Amazon wordmark centered optically on a tile")}
 ${pair("An icon in a round button", "play-before", "play-after", `The play icon moves ${N.icons.play.dx}px to the right at 24px, ${N.icons.play.dxPctIcon}% of the icon.`, "Play icon centered by its box in a button", "Play icon centered optically in a button")}
 ${pair("A mark in a disc", "vercel-box", "vercel-visual", `The triangle moves up ${N.vercel.dyPct}% of its height. It was ${pct1(N.vercel.beforePct)}% off center, and is now ${pct1(N.vercel.afterPct)}%.`, "Vercel triangle centered by its box in a disc", "Vercel triangle centered optically in a disc")}
 ${pair("An icon beside a label", "button-before", "button-after", `The fix is less padding on the icon side: ${N.button.padIcon}px and ${N.button.padText}px, not ${N.button.pad}px on each side.`, "Button with equal padding", "Button with optical padding")}
