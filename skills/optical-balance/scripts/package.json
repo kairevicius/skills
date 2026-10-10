@@ -6,12 +6,18 @@
   "description": "Measure where a logo or icon looks centered and how large it looks, then place and size it by that measurement.",
   "license": "MIT",
   "engines": {
-    "node": ">=18.17"
+    "node": "^18.17.0 || ^20.3.0 || >=21.0.0"
   },
   "scripts": {
-    "test": "node --test test.mjs"
+    "test": "node --test test.mjs v2-test.mjs",
+    "test:browser": "node --test browser-launch-test.mjs && node browser-test.mjs",
+    "validate": "node validate.mjs",
+    "kit": "node preference-kit.mjs"
   },
   "dependencies": {
     "sharp": "^0.34.3"
+  },
+  "devDependencies": {
+    "playwright-core": "1.61.1"
   }
 }

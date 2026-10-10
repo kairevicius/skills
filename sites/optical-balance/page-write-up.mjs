@@ -245,11 +245,11 @@ ${fig(F["lockup-after"], PAIR_W, Math.round(PAIR_W / 2), `Visual centers aligned
 <tr><th>logo</th><th class="num">equal height</th><th class="num">visual size</th><th class="num">scale</th><th class="num">rendered</th></tr>
 ${N.strip.map((r) => `<tr><td>${brand(r.name)}</td><td class="num">${r.equal}</td><td class="num">${r.size}</td><td class="num">×${r.correction}</td><td class="num">${r.rendered}</td></tr>`).join("\n")}
 </table></div>
-<p class="small muted">Sizes in px at a 40px row. The target is the smallest visual size, ${N.stripTarget}px. Both strips use one canvas width, because the page shows every figure at one width.</p>
+<p class="small muted">Sizes in px at a 40px row. The default target is the smallest baseline perceived size, ${N.stripTarget}px. Both strips use one canvas width, because the page shows every figure at one width.</p>
 
 <h2>It also crops photos</h2>
-<p>An uploaded photo is often wide, with the person on one side, and a center crop shows mostly wall. The same measurement can frame it. The subject is every pixel that contrasts with the backdrop, weighted by contrast squared. There is no accent discount here: a photo is a continuous field, and the eye goes to its brightest region with the most contrast.</p>
-<p>For a person, the visual center sits at the chest and the collar. Centering the crop there puts the face in the upper part of the circle, which is where a portrait wants it.</p>
+<p>An uploaded photo is often wide, with the person on one side, and a center crop shows mostly wall. The same measurement can frame it. The measured region is every pixel that contrasts with the backdrop, weighted by contrast squared. There is no accent discount here: a photo is a continuous field, and the eye goes to its brightest region with the most contrast.</p>
+<p>Contrast cannot identify a face or preferred portrait framing. Inspect the final crop; a collar or highlight may dominate.</p>
 <div class="pair">
 ${fig(F["frame-box"], PAIR_W, PAIR_W, `A center crop at ${N.frame.zoom}% of the short side shows the backdrop and half of the subject. The visual center is ${N.frame.beforeOffPct}% off the avatar center.`)}
 ${fig(F["frame-visual"], PAIR_W, PAIR_W, `The crop moved ${N.frame.moved} in the source. The visual center is ${N.frame.afterOffPct}% off the avatar center.`)}
@@ -264,6 +264,7 @@ ${fig(F["frame-visual"], PAIR_W, PAIR_W, `The crop moved ${N.frame.moved} in the
 <p class="small muted">Click into the canvas before you use the shortcuts. The edges use the ink box only, because the method does not model the overshoot of round shapes.</p>
 
 <h2>How the measurement works</h2>
+<p>This is a reproducible heuristic. Scoring its own placements checks implementation consistency, not human perception. No blind preference results are available.</p>
 <p>Everything above comes from one pass over the pixels. Vector input is rasterized first, at a ${DEFAULT_RASTER_EDGE}px longest edge, so an SVG measures like the bitmap a browser paints. Each pixel gets two weights, one for position and one for size.</p>
 <pre>luma           = 0.299 R + 0.587 G + 0.114 B     Rec. 601
 contrast       = |luma − background luma| / 255  0 to 1
@@ -276,7 +277,7 @@ ${fig(F["weight-alpha"], F.methodPanel.w, F.methodPanel.h, `Every visible pixel 
 ${fig(F["weight-contrast"], F.methodPanel.w, F.methodPanel.h, `Weighted by contrast squared. The letters keep ${N.method.letterWeight}, and the smile drops to ${N.method.smileWeight}.`, "", "Weighted by contrast²")}
 </div>
 <p>Squaring the contrast is what lets an accent hang. At half contrast, a pixel gets a quarter of the weight. So the letters keep a weight of ${N.method.letterWeight}, and the smile drops to ${N.method.smileWeight}. Size uses linear contrast instead. The squared form turns differences in color into differences in size. With it, a coral wordmark would measure a third smaller than a black one of the same shape.</p>
-<p>Pixels within ${BACKGROUND_CONTRAST} contrast of the background do not count. So an opaque export measures the same as a transparent one. A white background in the file does not pull every centroid toward the box center.</p>
+<p>Pixels within ${BACKGROUND_CONTRAST} contrast of the background do not count. So background pixels are excluded; translucent edges still change after compositing. A white background in the file does not pull every centroid toward the box center.</p>
 <pre>alpha centroid   Σ(alpha · p) / Σ alpha
 mass centroid    Σ(w · p) / Σ w
 accent share     Σ alpha where contrast &lt; ${ACCENT_CONTRAST}  ÷  Σ alpha
@@ -291,12 +292,12 @@ offset           container center − visual center     positive y moves down</p
 <pre>visual size      √ Σ s
 perceived size   √( visual size × ink height )
 baseline         min( row height ÷ ink height , max width ÷ ink width )
-correction       ( target size ÷ baseline size ) ^ 0.5</pre>
+correction       target perceived size ÷ baseline perceived size</pre>
 <p>The method fits each element to the row first, then scales it toward a target. The target is the smallest baseline size, or one named element when a set has a keyline.</p>
 <p>Six numbers drive all of it, and a measurement set each one:</p>
 <div class="scroll"><table>
 <tr><th>constant</th><th class="num">value</th><th>controls</th><th>set by</th></tr>
-<tr><td>background contrast</td><td class="num">${BACKGROUND_CONTRAST}</td><td>which pixels are background, not ink</td><td>low enough that an opaque export measures the same as a transparent one</td></tr>
+<tr><td>background contrast</td><td class="num">${BACKGROUND_CONTRAST}</td><td>which pixels are background, not ink</td><td>low enough that background pixels are excluded; translucent edges still change after compositing</td></tr>
 <tr><td>extent alpha</td><td class="num">${EXTENT_ALPHA}</td><td>which pixels set the ink box</td><td>half opaque, so edge pixels from resampling cannot grow the box</td></tr>
 <tr><td>accent contrast</td><td class="num">${ACCENT_CONTRAST}</td><td>which ink is faint</td><td>the Amazon smile measures ${N.amazonDark.smileContrastLight} on white and ${N.amazonDark.smileContrastDark} inverted on black, and the threshold is between the two</td></tr>
 <tr><td>accent max share</td><td class="num">${ACCENT_SHARE_LABEL}</td><td>when faint ink stops being an accent</td><td>the lighter PayPal blue is ${N.paypal.accentShare}% of its mark and must keep its full weight</td></tr>
@@ -332,7 +333,7 @@ correction       ( target size ÷ baseline size ) ^ 0.5</pre>
 /* Asset bake (sharp): place the element by its measured visual center */
 left = round(tile / 2 - visual.x); top = round(tile / 2 - visual.y);</pre>
 <p>The script runs on Node with sharp:</p>
-<pre>cd optical-balance/scripts &amp;&amp; npm install        # once, to install sharp
+<pre>cd optical-balance/scripts &amp;&amp; npm ci        # once, to install sharp
 
 node optical.mjs measure  logo.svg --bg 255           # find the visual center
 node optical.mjs measure  logo.png --bg "#141414"     # measure against the real background

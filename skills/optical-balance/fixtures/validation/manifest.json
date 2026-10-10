@@ -1,0 +1,44 @@
+{
+  "description": "Replacement held-out implementation-validation set, outside logo tuning, demo artwork, and four-shape size calibration. Not the missing original corpus; no human preference claims.",
+  "original": {
+    "status": "unavailable",
+    "manifest": null,
+    "licenses": "not archived",
+    "recordedOutputs": "not archived"
+  },
+  "license": "MIT; ../icons/LICENSE",
+  "background": "#ffffff",
+  "foreground": "#111111",
+  "container": 96,
+  "element": 60,
+  "scale": 4,
+  "files": [
+    "bell-fill.svg",
+    "hexagon-fill.svg",
+    "cloud-fill.svg",
+    "moon-fill.svg",
+    "flag-fill.svg",
+    "bookmark-fill.svg",
+    "chat-fill.svg",
+    "lightning-fill.svg",
+    "shield-fill.svg",
+    "umbrella-fill.svg"
+  ],
+  "source": {
+    "project": "Bootstrap Icons",
+    "version": "1.11.3",
+    "licenseUrl": "https://raw.githubusercontent.com/twbs/icons/v1.11.3/LICENSE",
+    "urls": {
+      "bell-fill.svg": "https://raw.githubusercontent.com/twbs/icons/v1.11.3/icons/bell-fill.svg",
+      "hexagon-fill.svg": "https://raw.githubusercontent.com/twbs/icons/v1.11.3/icons/hexagon-fill.svg",
+      "cloud-fill.svg": "https://raw.githubusercontent.com/twbs/icons/v1.11.3/icons/cloud-fill.svg",
+      "moon-fill.svg": "https://raw.githubusercontent.com/twbs/icons/v1.11.3/icons/moon-fill.svg",
+      "flag-fill.svg": "https://raw.githubusercontent.com/twbs/icons/v1.11.3/icons/flag-fill.svg",
+      "bookmark-fill.svg": "https://raw.githubusercontent.com/twbs/icons/v1.11.3/icons/bookmark-fill.svg",
+      "chat-fill.svg": "https://raw.githubusercontent.com/twbs/icons/v1.11.3/icons/chat-fill.svg",
+      "lightning-fill.svg": "https://raw.githubusercontent.com/twbs/icons/v1.11.3/icons/lightning-fill.svg",
+      "shield-fill.svg": "https://raw.githubusercontent.com/twbs/icons/v1.11.3/icons/shield-fill.svg",
+      "umbrella-fill.svg": "https://raw.githubusercontent.com/twbs/icons/v1.11.3/icons/umbrella-fill.svg"
+    }
+  }
+}

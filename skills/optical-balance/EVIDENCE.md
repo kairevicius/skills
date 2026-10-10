@@ -1,6 +1,6 @@
 # Evidence
 
-Each result in this file comes with the command that reproduces it. Run the commands from the skill folder, after `npm install` in `scripts/`. The logo examples use files from the repository's `sites/optical-balance/sources`, so clone the repository to rerun them. The outputs below are from 2026-10-03. If a rerun gives a different output, the rerun is correct, and this file needs an update.
+Each result in this file comes with the command that reproduces it. Run the commands from the skill folder, after `npm ci` in `scripts/`. The logo examples use files from the repository's `sites/optical-balance/sources`, so clone the repository to rerun them. The worked outputs below are historical, from 2026-10-03; v2 changes targets and final-pixel scoring. If a rerun gives a different output, the rerun is correct, and this file needs an update.
 
 ## Worked example: the Amazon wordmark on a tile
 
@@ -57,7 +57,7 @@ node scripts/optical.mjs equalize ../../sites/optical-balance/sources/{amazon,go
 ```
 
 ```
-target visual size 23.4px at row height 40px
+Historical target visual size 23.4px at row height 40px
 file                  equal-height  visual size  correction     ink (w x h)    file (w x h)
 amazon.svg                  132x40         40.7      x0.758      100.2x30.3      100.4x30.3
 google.svg                  121x40         26.3      x0.943      114.6x37.7      115.7x39.1
@@ -80,7 +80,7 @@ How to read it:
 
 ## Calibration: the size power on an icon set
 
-The test uses four solid shapes from Bootstrap Icons in `fixtures/icons/` (MIT license, in the same folder). The square is the keyline anchor at 16px. Icon keyline grids let a circle, a diamond, and a star grow past the square, so that all four look equal.
+The test uses four solid shapes from Bootstrap Icons in `fixtures/icons/` (MIT license, in the same folder). The square is the keyline anchor at 16px. Icon keyline grids let a circle, a diamond, and a star grow past the square, to compare their heuristic sizes.
 
 ```
 node scripts/optical.mjs equalize fixtures/icons/{square,circle,diamond,star}-fill.svg --height 16 --target fixtures/icons/square-fill.svg --grow
@@ -102,23 +102,26 @@ node scripts/optical.mjs strip fixtures/icons/{square,circle,diamond,star}-fill.
 
 ## Validation on held-out artwork
 
-The method was tuned on the logos in `sites/optical-balance/sources`. On 2026-10-03 it was tested on artwork it had never seen. The test placed each artwork by its own box, as a layout does, and by the skill's procedure, then measured both results.
+The earlier report claimed results for connector logos and Lucide icons.
+Their exact manifest, artwork, licenses, runner, and raw outputs were not archived in this repository.
+Those historical counts cannot be reproduced, so they are withdrawn as validation evidence.
+Do not reconstruct or invent their results from the summary.
 
-| set | artwork | geometric, above 1% off center | optical, above 1% off center | largest optical residual |
-|---|---|---|---|---|
-| connector logos, 48px PNGs with transparency, in a 96px tile | 50 | 24 | 0 | 0.53% |
-| Lucide stroke icons, white on a dark round button | 24 | 9 | 0 | 0.25% |
+The shipped manifest in `fixtures/validation/manifest.json` distinguishes this missing corpus from a reproducible replacement set.
+The replacement uses bell, hexagon, cloud, moon, flag, bookmark, chat, lightning, shield, and umbrella.
+These shapes were outside logo tuning, demo artwork, and the four-shape size calibration.
+Heart is excluded because the demo already uses it.
+The manifest records Bootstrap Icons v1.11.3 source URLs and the MIT license URL.
+The archived license in `fixtures/icons/LICENSE` matches that upstream release.
+It is not the original held-out corpus and is not independent perceptual validation.
+Run `cd scripts && npm run validate` to regenerate `fixtures/validation/recorded.json`.
+The recorded run passes 10 of 10 shapes at the 1% gate.
+The maximum off-center reading is 6.678654% before placement and 0.177497% afterward.
+These values come from `cd scripts && npm run validate`; raw readings and artwork hashes are in `recorded.json`.
+Placement and scoring share the same formula. Passing gates therefore checks numerical consistency and is circular for perception.
 
-Visual inspection of the 24 largest logo corrections showed the expected direction in each case. Heavy bases move up, top-heavy marks move down, and arrows move toward their tail. Lucide draws its play icon already shifted right inside its frame. The skill measures that frame-centered play icon at 0.08% off center, which agrees with the designers' hand placement.
-
-Three agents also tested the skill cold, with only this folder and a realistic request: logo tiles, a logo wall, and a play button. Their reports found the failures that the current version fixes:
-
-- trim against the corner pixel;
-- silent zeros for a white icon and for an opaque backdrop;
-- no command to verify a CSS offset;
-- unclear gates.
-
-`scripts/test.mjs` keeps each of those fixed.
+Use [KIT.md](KIT.md) for independent blind preference testing.
+No participant results are claimed or supplied.
 
 ## Cases in the write-up
 
@@ -136,7 +139,7 @@ Each case is a section of [the write-up](https://kairevicius.github.io/skills/op
 | an icon beside a label | less padding on the icon side |
 | a symbol beside a wordmark (Slack, Airbnb, Shopify) | shipped lockups align visual centers, or follow a brand rule |
 | a logo strip | equal perceived size, with the size spread before and after |
-| cropping a portrait | the crop centers on the visual center of the subject |
+| cropping a portrait | the crop centers on contrast; subject identity requires inspection |
 
 ## Prior art
 
