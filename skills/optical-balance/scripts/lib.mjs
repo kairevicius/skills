@@ -29,11 +29,48 @@ function chroma(r, g, b) {
         b: 0.0259040371 * l + 0.7827717662 * m - 0.8086757660 * t };
 }
 
+function contrastReader(background) {
+    const color = typeof background === "number" ? { r: background, g: background, b: background } : background;
+    if (!color || [color.r, color.g, color.b].some(v => !Number.isFinite(v) || v < 0 || v > 255)) throw new Error("invalid background luminance or RGB");
+    const lum = typeof background === "number" ? background : luminance(color.r, color.g, color.b);
+    const bg = chroma(color.r, color.g, color.b);
+    const cache = new Map();
+    return (r, g, b, scale = 1) => {
+        const key = r * 65536 + g * 256 + b;
+        let contrast = cache.get(key);
+        if (!contrast) {
+            const c = chroma(r, g, b);
+            contrast = {
+                luma: Math.abs(luminance(r, g, b) - lum) / 255,
+                chroma: Math.hypot(c.a - bg.a, c.b - bg.b),
+            };
+            cache.set(key, contrast);
+        }
+        return Math.min(1, contrast.chroma === 0 ? contrast.luma : Math.hypot(contrast.luma, contrast.chroma / scale));
+    };
+}
+
+export function inkContrast(r, g, b, background) {
+    return contrastReader(background)(r, g, b);
+}
+
 export function perceptualContrast(r, g, b, background) {
-    const color = typeof background === "number" ? { r: background, g: background, b: background, lum: background } : background;
-    const foregroundChroma = chroma(r, g, b), backgroundChroma = chroma(color.r, color.g, color.b);
-    const chromaContrast = Math.hypot(foregroundChroma.a - backgroundChroma.a, foregroundChroma.b - backgroundChroma.b) / 0.25;
-    return Math.min(1, Math.max(Math.abs(luminance(r, g, b) - color.lum) / 255, chromaContrast));
+    return contrastReader(background)(r, g, b, 0.25);
+}
+
+function softBounds(values, first, last) {
+    const low = 0.3, high = 0.5;
+    const maximum = values.reduce((m, c) => Math.max(m, c), 0);
+    const bound = (start, end, step) => {
+        let result = start, seen = 0;
+        for (let i = start; i !== end; i += step) {
+            seen = Math.max(seen, values[i]);
+            const share = Math.max(0, Math.min(high, maximum) - Math.max(low, seen)) / (high - low);
+            result += step * share;
+        }
+        return result;
+    };
+    return [bound(first, last, 1), bound(last, first, -1)];
 }
 
 /**
@@ -54,8 +91,7 @@ export const ACCENT_MAX_SHARE = 1 / 3;
  * its centroid floats a sixth of its height above its neighbours, while a
  * box-centered play icon reads left-heavy. The midpoint settles both, and it
  * is the same weighting the sizing rule uses (geometric mean of ink size and
- * height). A two-tone mark is unaffected: its extent is the box of the ink the
- * eye reads, so a discounted accent moves neither center.
+ * height). The extent transition controls how far an accent moves the extent.
  */
 export const CENTER_BLEND = 0.5;
 /** Longest edge, in px, an SVG is rasterized to before measuring. */
@@ -144,12 +180,13 @@ export async function loadRaster(file, { maxEdge = DEFAULT_RASTER_EDGE, trim = f
  */
 export async function cropToInk(png, raw, background, backgroundContrast = BACKGROUND_CONTRAST) {
     const { data, width, height } = raw;
+    const classify = contrastReader(background);
     let left = width, top = height, right = -1, bottom = -1;
     for (let y = 0; y < height; y++) {
         for (let x = 0; x < width; x++) {
             const i = (y * width + x) * 4;
             if (data[i + 3] <= TRIM_THRESHOLD) continue;
-            if (perceptualContrast(data[i], data[i + 1], data[i + 2], background) <= backgroundContrast) continue;
+            if (classify(data[i], data[i + 1], data[i + 2]) <= backgroundContrast) continue;
             if (x < left) left = x;
             if (x > right) right = x;
             if (y < top) top = y;
@@ -187,10 +224,11 @@ export function detectBackground(raw) {
     for (const b of buckets.values()) if (!best || b.n > best.n) best = b;
     const color = { r: best.r / best.n, g: best.g / best.n, b: best.b / best.n };
     color.lum = luminance(color.r, color.g, color.b);
+    const classify = contrastReader(color);
     let match = 0;
     for (const p of ring) {
         const i = p * 4;
-        if (data[i + 3] >= 128 && perceptualContrast(data[i], data[i + 1], data[i + 2], color) <= BACKGROUND_CONTRAST) match++;
+        if (data[i + 3] >= 128 && classify(data[i], data[i + 1], data[i + 2]) <= BACKGROUND_CONTRAST) match++;
     }
     return { opaque: true, color, hex: toHex(color), share: match / ring.length };
 }
@@ -201,11 +239,12 @@ export function detectBackground(raw) {
  */
 function holdsArtwork(raw, own) {
     const { data } = raw;
+    const classify = contrastReader(own.color);
     let visible = 0, other = 0;
     for (let i = 0; i < data.length; i += 4) {
         if (data[i + 3] < 128) continue;
         visible++;
-        if (perceptualContrast(data[i], data[i + 1], data[i + 2], own.color) > BACKGROUND_CONTRAST) other++;
+        if (classify(data[i], data[i + 1], data[i + 2]) > BACKGROUND_CONTRAST) other++;
     }
     return visible > 0 && other / visible >= 0.02;
 }
@@ -234,11 +273,12 @@ export function resolveBackground(bg, raw) {
 export function inputWarnings(raw, bg) {
     const color = typeof bg === "object" ? bg : parseColor(bg);
     const { data } = raw;
+    const classify = contrastReader(color);
     let visible = 0, ink = 0, maxContrast = 0;
     for (let i = 0; i < data.length; i += 4) {
         if (data[i + 3] < 128) continue;
         visible++;
-        const c = perceptualContrast(data[i], data[i + 1], data[i + 2], color);
+        const c = classify(data[i], data[i + 1], data[i + 2]);
         if (c > BACKGROUND_CONTRAST) ink++;
         if (c > maxContrast) maxContrast = c;
     }
@@ -249,8 +289,7 @@ export function inputWarnings(raw, bg) {
     else if (maxContrast < LOW_CONTRAST) warnings.push(`The element barely shows on the ${bgText}: its strongest contrast is ${maxContrast.toFixed(2)}. Check --bg.`);
     const own = detectBackground(raw);
     if (own.opaque && holdsArtwork(raw, own)) {
-        const differs = Math.abs(own.color.lum - color.lum) / 255 > BACKGROUND_CONTRAST;
-        // Luminance alone misses a tinted backdrop of the same lightness, which still shows as a faint rectangle.
+        const differs = inkContrast(own.color.r, own.color.g, own.color.b, color) > BACKGROUND_CONTRAST;
         const tinted = Math.max(Math.abs(own.color.r - color.r), Math.abs(own.color.g - color.g), Math.abs(own.color.b - color.b)) > 4;
         if (own.share >= BORDER_UNIFORM && differs) {
             warnings.push(`The image has its own opaque background (${own.hex}), unlike the ${bgText}. It renders as a tile or badge. To check the artwork inside it, use --bg auto. On a different plate, a transparent source works better.`);
@@ -284,7 +323,7 @@ export async function rasterizeSvg(svg, { scale = 1 } = {}) {
  *
  * The visual center is the extent center moved `blend` (CENTER_BLEND) of the
  * way toward the mass. The extent is the bounding box of the ink the eye
- * reads: the dominant tone while the discount applies, all ink otherwise.
+ * reads: bounds integrated over a contrast band while discounted, all ink otherwise.
  * `forceDiscount` applies the accent discount regardless of the guard, for
  * demonstrating what the guard prevents. `backgroundContrast` widens the band
  * of pixels treated as background; a photograph on a plain backdrop needs
@@ -303,35 +342,33 @@ export function measure(raw, bgLum, { blend = CENTER_BLEND, forceDiscount = fals
     if (!Number.isInteger(width) || !Number.isInteger(height)) throw new Error("raster dimensions must be integers");
     if (data.length !== width * height * 4) throw new Error("invalid RGBA buffer");
     const background = typeof bgLum === "number" ? { r: bgLum, g: bgLum, b: bgLum, lum: bgLum } : bgLum;
-    const backgroundLum = background?.lum;
+    const backgroundLum = typeof bgLum === "number" ? bgLum : luminance(background?.r, background?.g, background?.b);
+    const classify = contrastReader(bgLum);
     if (!Number.isFinite(backgroundLum) || backgroundLum < 0 || backgroundLum > 255) throw new Error("invalid background luminance");
     if (!Number.isFinite(blend) || blend < 0 || blend > 1 || !Number.isFinite(backgroundContrast) || backgroundContrast < 0 || backgroundContrast >= 1) throw new Error("invalid measurement options");
     let w = 0, wx = 0, wy = 0;
     let aw = 0, ax = 0, ay = 0;
     let cw = 0;
-    let accent = 0;
+    let accent = 0, lumaAccent = 0;
     let left = width, top = height, right = -1, bottom = -1;
-    let dLeft = width, dTop = height, dRight = -1, dBottom = -1;
+    const columns = new Float64Array(width), rows = new Float64Array(height);
     for (let y = 0; y < height; y++) {
         for (let x = 0; x < width; x++) {
             const i = (y * width + x) * 4;
             const a = data[i + 3];
             if (a <= TRIM_THRESHOLD) continue;
-            const contrast = perceptualContrast(data[i], data[i + 1], data[i + 2], background);
-            if (contrast <= backgroundContrast) continue;
+            if (classify(data[i], data[i + 1], data[i + 2]) <= backgroundContrast) continue;
+            const contrast = classify(data[i], data[i + 1], data[i + 2], 0.25);
             const alpha = a / 255;
             const weight = alpha * contrast * contrast;
             w += weight; wx += weight * x; wy += weight * y;
             aw += alpha; ax += alpha * x; ay += alpha * y;
             cw += alpha * contrast;
             if (contrast < ACCENT_CONTRAST) accent += alpha;
+            if (Math.abs(luminance(data[i], data[i + 1], data[i + 2]) - backgroundLum) / 255 < ACCENT_CONTRAST) lumaAccent += alpha;
             if (a < EXTENT_ALPHA) continue;
-            if (contrast >= ACCENT_CONTRAST) {
-                if (x < dLeft) dLeft = x;
-                if (x > dRight) dRight = x;
-                if (y < dTop) dTop = y;
-                if (y > dBottom) dBottom = y;
-            }
+            columns[x] = Math.max(columns[x], contrast);
+            rows[y] = Math.max(rows[y], contrast);
             if (x < left) left = x;
             if (x > right) right = x;
             if (y < top) top = y;
@@ -343,15 +380,17 @@ export function measure(raw, bgLum, { blend = CENTER_BLEND, forceDiscount = fals
     const alphaCentroid = aw > 0 ? { x: ax / aw + 0.5, y: ay / aw + 0.5 } : { ...box };
     const massCentroid = w > 0 ? { x: wx / w + 0.5, y: wy / w + 0.5 } : { ...alphaCentroid };
     const accentShare = aw > 0 ? accent / aw : 0;
-    const discounted = w > 0 && (forceDiscount || accentShare <= ACCENT_MAX_SHARE);
+    const lumaAccentShare = lumaAccent / aw;
+    const discounted = w > 0 && (forceDiscount || Math.max(accentShare, lumaAccentShare) <= ACCENT_MAX_SHARE);
     const mass = discounted ? massCentroid : alphaCentroid;
     const inkBox = right >= 0
         ? { left, top, width: right - left + 1, height: bottom - top + 1 }
         : { left: 0, top: 0, width, height };
-    const dominantBox = dRight >= 0
-        ? { left: dLeft, top: dTop, width: dRight - dLeft + 1, height: dBottom - dTop + 1 }
+    const [softLeft, softRight] = right >= 0 ? softBounds(columns, left, right) : [0, width - 1];
+    const [softTop, softBottom] = right >= 0 ? softBounds(rows, top, bottom) : [0, height - 1];
+    const extentBox = discounted
+        ? { left: softLeft, top: softTop, width: softRight - softLeft + 1, height: softBottom - softTop + 1 }
         : inkBox;
-    const extentBox = discounted ? dominantBox : inkBox;
     const extent = right >= 0
         ? { x: extentBox.left + extentBox.width / 2, y: extentBox.top + extentBox.height / 2 }
         : { ...box };
@@ -360,6 +399,7 @@ export function measure(raw, bgLum, { blend = CENTER_BLEND, forceDiscount = fals
         width,
         height,
         bgLum: backgroundLum,
+        bg: { r: background.r, g: background.g, b: background.b, lum: backgroundLum },
         box,
         alphaCentroid,
         massCentroid,
@@ -369,6 +409,7 @@ export function measure(raw, bgLum, { blend = CENTER_BLEND, forceDiscount = fals
         visual,
         blend,
         accentShare,
+        lumaAccentShare,
         discounted,
         alphaArea: aw,
         massArea: w,
@@ -820,14 +861,14 @@ const pct = (n) => `${n >= 0 ? "+" : ""}${n.toFixed(1)}%`;
 export function formatMeasure(m, label = "", { verdict = false, css = true } = {}) {
     const lines = [];
     if (label) lines.push(label);
-    lines.push(`image            ${m.width}x${m.height}, background luminance ${f1(m.bgLum)}`);
+    lines.push(`image            ${m.width}x${m.height}, background ${toHex(m.bg)} (luminance ${f1(m.bgLum)})`);
     lines.push(`ink box          ${m.inkBox.width}x${m.inkBox.height} at ${m.inkBox.left},${m.inkBox.top}`);
     lines.push(`box center       ${f1(m.box.x)}, ${f1(m.box.y)}`);
     lines.push(`alpha centroid   ${f1(m.alphaCentroid.x)}, ${f1(m.alphaCentroid.y)}`);
-    lines.push(`mass centroid    ${f1(m.mass.x)}, ${f1(m.mass.y)}${m.discounted ? "  (contrast-weighted, accent discounted)" : "  (accent discount off: faint ink is " + Math.round(m.accentShare * 100) + "% of the mark, alpha centroid used)"}`);
+    lines.push(`mass centroid    ${f1(m.mass.x)}, ${f1(m.mass.y)}${m.discounted ? "  (contrast-weighted, accent discounted)" : "  (accent discount off: faint ink is " + Math.round(Math.max(m.accentShare, m.lumaAccentShare) * 100) + "% of the mark, alpha centroid used)"}`);
     lines.push(`extent center    ${f1(m.extent.x)}, ${f1(m.extent.y)}  (box of the ink the eye reads, ${m.extentBox.width}x${m.extentBox.height})`);
     lines.push(`visual center    ${f1(m.visual.x)}, ${f1(m.visual.y)}  (extent moved ${m.blend} of the way to mass)`);
-    lines.push(`faint-ink share  ${Math.round(m.accentShare * 100)}% below contrast ${ACCENT_CONTRAST}`);
+    lines.push(`faint-ink share  colour ${Math.round(m.accentShare * 100)}%, luma ${Math.round(m.lumaAccentShare * 100)}% below contrast ${ACCENT_CONTRAST}`);
     lines.push(`visual size      ${f1(m.sizes.contrast)}px (sqrt of contrast-weighted ink area)`);
     lines.push(`perceived size   ${f1(m.perceivedSize)}px (geometric mean of visual size and ink height; equal across an equalized set)`);
     lines.push(`offset to apply  x ${m.offset.x >= 0 ? "+" : ""}${f1(m.offset.x)}px (${pct(m.offsetPct.x)}), y ${m.offset.y >= 0 ? "+" : ""}${f1(m.offset.y)}px (${pct(m.offsetPct.y)})  (positive y moves the element down)`);

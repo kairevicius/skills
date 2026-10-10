@@ -270,7 +270,7 @@ const numbers = {};
     figures["paypal-box"] = record(await save("paypal-box.png", plain), PW, PH, { box: mp.box, marks: [mp.visual], bboxes: [inkRect(mp)] });
     figures["paypal-visual"] = record(await save("paypal-visual.png", balanced), PW, PH, { box: mb.box, marks: [mb.visual], bboxes: [inkRect(mb)] });
     numbers.paypal = {
-        accentShare: Math.round(a.accentShare * 100),
+        accentShare: Math.round(Math.max(a.accentShare, a.lumaAccentShare) * 100),
         art: `${a.width}x${a.height}`,
         alphaX: f1(a.alphaCentroid.x), extentX: f1(a.extent.x), visualX: f1(a.visual.x), forcedX: f1(fa.visual.x), boxX: f1(a.box.x),
         shiftPct: f1(((a.box.x - a.visual.x) / a.width) * 100),
@@ -424,7 +424,7 @@ const numbers = {};
     figures["amazon-dark-visual"] = record(await save("amazon-dark-visual.png", balanced.png), TILE, TILE, { box: balanced.result.box, marks: [balanced.result.visual], bboxes: [inkRect(balanced.result)], dark: true });
     const a = balanced.artwork;
     numbers.amazonDark = {
-        dyPct: f1(a.offsetPct.y), dy: f1(a.offset.y), accentShare: Math.round(a.accentShare * 100), discounted: a.discounted,
+        dyPct: f1(a.offsetPct.y), dy: f1(a.offset.y), accentShare: Math.round(Math.max(a.accentShare, a.lumaAccentShare) * 100), discounted: a.discounted,
         smileContrastLight: perceptualContrast(255, 153, 0, 255).toFixed(2), smileContrastDark: perceptualContrast(255, 153, 0, 0).toFixed(2),
         boxDy: f1(plain.result.visual.y - TILE / 2), visualDy: f1(balanced.result.visual.y - TILE / 2),
         alphaY: f1(a.alphaCentroid.y), extentY: f1(a.extent.y), visualY: f1(a.visual.y), boxY: f1(a.box.y),

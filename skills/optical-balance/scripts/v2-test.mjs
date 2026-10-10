@@ -39,8 +39,8 @@ test('near one-third two-tone readings assert numerical centroid and extent',()=
   const m=measure({data,width:100,height:1},255);
   const strong=100-faint;
   const expectedMass=faint===32?(strong*(strong/2)+faint*.16*(strong+faint/2))/(strong+faint*.16):50;
-  assert.ok(Math.abs(m.mass.x-expectedMass)<1e-9);assert.equal(m.extent.x,faint===32?34:50);
-  assert.ok(Math.abs(m.visual.x-((faint===32?34:50)+expectedMass)/2)<1e-9);
+  assert.ok(Math.abs(m.mass.x-expectedMass)<1e-9);assert.equal(m.extent.x,faint===32?42:50);
+  assert.ok(Math.abs(m.visual.x-((faint===32?42:50)+expectedMass)/2)<1e-9);
  }
 });
 test('linear visual size and alpha compositing have explicit numerical contracts',async()=>{
@@ -155,7 +155,7 @@ test('colour Amazon keeps the mono placement direction without a large downward 
 test('saturated orange contributes mass and stays in the strong-ink extent', () => {
  const m = measure({width:2,height:1,data:Buffer.from([0,0,0,255,255,153,0,255])},255);
  assert.equal(m.extentBox.width,2);
- assert.ok(m.mass.x > .8 && m.mass.x < 1);
+ assert.ok(m.massCentroid.x > .8 && m.massCentroid.x < 1);
  assert.ok(m.contrastArea > 1.6);
 });
 
@@ -193,4 +193,49 @@ test('every weighting command accepts colour and preserves finite JSON readings'
   if (cmd==='place') assert.ok(Math.abs(result.offset.y)<4);
   if (cmd==='measure') assert.ok(result[0].accentShare<.1);
  }
+});
+
+
+test('orange variants on white and cream stay within 3px plus one raster step of mono Amazon', async () => {
+ const { readFileSync } = await import('node:fs');
+ const source = readFileSync(new URL('../fixtures/colour/amazon-color.svg', import.meta.url), 'utf8');
+ for (const plate of ['#ffffff','#FFF8E7']) {
+  const options = {container:200,element:112,plate,shape:'rect'};
+  const mono = await renderPlacement(new URL('../fixtures/colour/amazon.svg',import.meta.url).pathname,options);
+  for (const orange of ['#FF9900','#FFB347']) {
+   const variant = file(orange.slice(1)+plate.slice(1)+'.svg',source.replace(/#ff9900/gi,orange));
+   const colour = await renderPlacement(variant,options);
+   assert.ok(Math.hypot(colour.offset.px.x-mono.offset.px.x,colour.offset.px.y-mono.offset.px.y)<=3.25,JSON.stringify({orange,plate,colour:colour.offset,mono:mono.offset}));
+   assert.ok(colour.after.pct<=1);
+  }
+ }
+});
+test('frame ignores a near-black tinted backdrop at photo tolerance', async () => {
+ const photo=file('tinted-photo.svg',svg('<rect width="200" height="100" fill="#050414"/><rect x="80" y="20" width="40" height="60" fill="#fff"/>',200,100));
+ const f=await renderFrame(photo,{size:128,bg:'#0a0a08',circle:true});
+ assert.ok(f.source.inkBox.width < f.source.width/2,JSON.stringify(f.source.inkBox));
+ assert.ok(f.source.inkBox.height < f.source.height*.7);
+});
+
+
+test('colour compositing uses the flattened RGB and derives background luma', async () => {
+ const raw={width:1,height:1,data:Buffer.from([255,153,0,128])};
+ const png=await sharp(raw.data,{raw:{width:1,height:1,channels:4}}).flatten({background:'#fff'}).png().toBuffer();
+ const flattened=await toRaw(png);
+ assert.deepEqual([...flattened.data],[255,203,127,255]);
+ const m=measure(flattened,{r:255,g:255,b:255,lum:0});
+ assert.equal(m.bgLum,255);
+ assert.ok(Math.abs(m.massArea-0.2278458450124438)<0.00001);
+ assert.throws(()=>measure(raw,{lum:255}),/invalid background/);
+});
+test('extent varies continuously across the former strong-ink threshold', () => {
+ const sample=g=>measure({width:100,height:1,data:Buffer.from(Array.from({length:100},(_,x)=>x<80?[0,0,0,255]:[g,g,g,255]).flat())},255);
+ assert.ok(Math.abs(sample(101).visual.x-sample(103).visual.x)<.1);
+});
+
+test('equal-luma cyan backdrop warns as a tile rather than a faint rectangle', async () => {
+ const tile=file('cyan-backdrop.svg',svg('<rect width="100" height="100" fill="#00c2ff"/><rect x="20" y="20" width="60" height="60" fill="#000"/>'));
+ const m=await measureFile(tile,{bg:'#8f8f8f'});
+ assert.ok(m.warnings.some(w=>w.includes('tile or badge')),m.warnings.join('\n'));
+ assert.ok(!m.warnings.some(w=>w.includes('faint rectangle')));
 });

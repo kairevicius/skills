@@ -1,6 +1,6 @@
 # Evidence
 
-Each result in this file comes with the command that reproduces it. Run the commands from the skill folder, after `npm ci` in `scripts/`. The logo examples use files from the repository's `sites/optical-balance/sources`, so clone the repository to rerun them. The Amazon tile and equalization outputs were rerun with perceptual colour distance (OKLab chroma plus luminance contrast). Other examples remain historical. If a rerun gives a different output, the rerun is correct, and this file needs an update.
+Each result in this file comes with the command that reproduces it. Run the commands from the skill folder, after `npm ci` in `scripts/`. The logo examples use files from the repository's `sites/optical-balance/sources`, so clone the repository to rerun them. The Amazon tile and equalization outputs were rerun with luma + OKLab chroma contrast (OKLab chroma plus luminance contrast). Other examples remain historical. If a rerun gives a different output, the rerun is correct, and this file needs an update.
 
 ## Worked example: the Amazon wordmark on a tile
 
@@ -123,9 +123,9 @@ Each case is a section of [the write-up](https://kairevicius.github.io/skills/op
 
 | case | what it shows |
 |---|---|
-| a two-tone mark on a tile (Amazon) | perceptual colour distance gives the smile mass and extent influence |
-| the same mark in dark mode | the background decides which ink is faint, so each theme has its own offset |
-| when not to discount (PayPal) | above 1/3, faint ink is a second tone and keeps its full weight |
+| a two-tone mark on a tile (Amazon) | luma + OKLab chroma contrast gives the smile mass and extent influence |
+| the same mark in dark mode | the background affects weights; each theme is measured against its actual plate |
+| when not to discount (PayPal) | above 1/3 in either luma or colour contrast, faint ink is a second tone and keeps its full weight |
 | icons in round buttons | a play icon moves right, an arrow moves left |
 | a caps label in a pill | capitals sit high in the em box; letter-spacing adds a trailing gap |
 | initials in an avatar disc | each letter needs its own offset |
@@ -147,3 +147,69 @@ Designers already make these corrections by eye. The skill measures them. Cite t
 ## History
 
 The method started in September 2026 on a pipeline that bakes company logos into square tiles. The Amazon wordmark looked too high on its white tile, although the bake used alpha-centroid centering. The accent discount came first. The 1/3 limit came next, when the two PayPal blues moved off center under the discount. The size rule came last, when a logo strip at equal height looked uneven. In October 2026, cold-agent tests and the held-out validation above added the input warnings, `place`, `check`, and the size correction in `strip`. A second cold round made `strip` render each whole file as it ships. Its earlier check on cropped copies passed a row that measured 3–4% as placed.
+
+
+## Colour review: main, first pass, final
+
+Run `node sites/optical-balance/colour-test.mjs` for the final snapshots.
+The comparison runner is archived in `/workspace/codex/logs/ob-colour`; run `node comparison.mjs` there.
+Each pair below is horizontal and vertical translation, as percentages of the whole source image box on white.
+These source measurements differ from the rendered Amazon placement tests.
+
+| Logo | main x%, y% | first pass x%, y% | final x%, y% |
+|---|---:|---:|---:|
+| amazon | +0.1096, +19.9014 | +0.3632, +7.5638 | +0.4398, +6.9406 |
+| google | -0.5470, +0.9382 | -0.7672, +0.7823 | -0.5470, +0.9382 |
+| stripe | +0.1449, -0.2278 | +0.1450, -0.2277 | +0.1449, -0.2278 |
+| slack | -4.9320, -1.5781 | -2.7061, -1.9427 | -1.3317, -1.3889 |
+| shopify | +3.5558, -2.0091 | -2.0172, -2.3020 | +3.5558, -2.0091 |
+| apple | +0.5478, -4.4266 | +0.5478, -4.4266 | +0.5478, -4.4266 |
+| mastercard | -0.0125, +3.3207 | +3.6532, +2.5837 | -0.0125, +3.3207 |
+| netflix | +1.8745, +2.4974 | +1.8749, +2.4967 | +1.8751, +2.4973 |
+| airbnb | -0.0481, -2.1200 | -0.0472, -2.1201 | -0.0481, -2.1200 |
+| paypal | +3.7544, +3.2020 | +3.7544, +3.2020 | +3.7544, +3.2020 |
+
+The first pass promoted Mastercard's yellow into strong ink, disabling the former two-tone guard.
+Unequal colour weights then pulled a symmetric mark toward red, creating the positive horizontal correction.
+Shopify's lighter green crossed the threshold before its darker green, producing the offset flip.
+`hypot` restores their contrast ordering but alone still bypasses the two-tone guard.
+The final guard checks both luma and colour shares, restoring Mastercard, Shopify, and PayPal to main's translations.
+Amazon retains colour weighting because its smile remains a minority by either measure.
+The snapshot test covers all ten sources, including PayPal outside the nine-logo strip.
+
+Grey comparison covers every icon fixture on white and dark plates, plus both neutral Amazon fixtures.
+Run the archived `grey-comparison.mjs`; its raw results are in `grey-comparison.json`.
+All neutral-plate fixture offsets and held-out validation placement readings remain unchanged; `recorded.json` is untouched.
+Mixed-grey marks in the transition band can change: the existing minority two-tone test now has extent x=42 instead of 34.
+Its visual x changes from 35.750547 to 39.750547, reducing the horizontal correction by 4px.
+This is intentional smoothing, not an unchanged-grey claim; the weight and size formulae remain identical for neutral greys.
+Run `cd skills/optical-balance/scripts && npm test` for this explicit grey contract.
+
+The colour placement tests use a 3px target plus one 0.25px raster step at default 4x rendering.
+The worst colour-versus-mono vertical difference is 3.192px, for the lighter smile on cream.
+Run `node comparison.mjs` from the archived review directory for every main, first-pass, and final placement reading.
+These gates check numerical stability, not independent perceptual preference.
+
+Visual inspection used a three-column contact sheet of all sources, with box guides and measured centre markers.
+The final Mastercard marker returns to the symmetry axis; Shopify and PayPal return to their main markers.
+Amazon's final marker includes the smile; Slack moves toward the coloured symbol as its chroma gains weight.
+Google and Airbnb keep main's markers through the two-tone guard; Apple is unchanged.
+Stripe and Netflix differ only slightly in raster edge weights.
+The sheet is `/workspace/codex/logs/ob-colour/logo-visual.png`, generated by the archived `visual.mjs`.
+Inspection found no extra horizontal symmetry defect. It does not replace independent human preference testing.
+
+The same Vermeer frame input was also compared against main and the first pass.
+Run the archived `frame-comparison.mjs`; raw values are in `frame-comparison.json`.
+Its ink box is 1779×1496 on main and final, versus the erroneous 2780×1498 first-pass box.
+The final crop starts at (1088,137), versus main's (1086,112), with the same 1348px side.
+The vertical crop change is intentional colour weighting and extent smoothing after background exclusion; it is not a bit-identical photo result.
+The three crops were inspected in `frame-visual.png`; the face and head remain intact, with a small upward subject shift.
+Frame remains contrast-driven and cannot identify the person or apply a portrait composition rule.
+
+`hypot` alone moves PayPal to (+5.1664%, +3.6045%) and Mastercard to (+2.9134%, +2.9145%).
+The final two-share guard restores their main offsets, as the table shows.
+Run the archived `metric-comparison.mjs` for the tone ordering, classification distances, and guard census.
+For (5,4,20) on #0a0a08, classification is 0.0451; weighting is 0.1715.
+Only classification is compared against the frame tolerance of 0.15.
+The cached reader converts its background once per operation and caches chroma and luma by RGB.
+No new performance measurement or speedup is claimed.

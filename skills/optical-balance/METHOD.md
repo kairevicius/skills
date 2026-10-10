@@ -8,13 +8,13 @@ The script reads a raster. It rasterizes vector input first, at a 1024px longest
 
 ```
 luma         = 0.299 R + 0.587 G + 0.114 B       Rec. 601
-contrast     = min(1, max(luminance contrast, OKLab chroma distance / 0.25))
+contrast     = min(1, hypot(luma contrast, OKLab chroma distance / 0.25))
              skip the pixel when contrast ≤ 0.02 (it is background)
 mass weight  w = alpha × contrast²               for position
 size weight  s = alpha × contrast                for size
 ```
 
-Contrast means perceptual colour distance from the background, using OKLab chroma and the existing luminance scale.
+Contrast combines Rec.601 luma contrast with OKLab chroma distance; it does not use OKLab lightness.
 
 The conversion follows [the OKLab reference](https://bottosson.github.io/posts/oklab/), after linearising sRGB.
 
@@ -24,7 +24,8 @@ The 0.25 normalisation is a heuristic scale, not measured human preference.
 Reproduce it with `node --test scripts/v2-test.mjs`; the saturated-orange test checks the resulting weight.
 Neutral colours have zero chroma, so greyscale weights stay unchanged.
 Alpha multiplies each weight; flattened pixels use their composited colour.
-All ink, accent, and crop thresholds use this same contrast.
+Ink classification, crop, background detection, warnings, and photo tolerance use unscaled `hypot(luma contrast, OKLab chroma distance)`.
+Weights and the colour faint-ink split use the scaled metric.
 
 Position and size need different weights:
 
@@ -39,9 +40,9 @@ The background threshold of 0.02 lets background pixels be excluded; translucent
 alpha centroid   Σ(alpha · p) / Σ alpha
 mass centroid    Σ(w · p) / Σ w
 faint-ink share  Σ alpha where contrast < 0.6  ÷  Σ alpha
-mass             faint-ink share ≤ 1/3 ? mass centroid : alpha centroid
+mass             both colour and luma faint shares ≤ 1/3 ? mass centroid : alpha centroid
 extent center    center of the ink box (alpha ≥ 128)
-                 strong ink only, while the accent discount applies
+                 bounds integrated across contrast 0.3–0.5 while discounted
 visual center    extent + 0.5 × (mass − extent)
 offset           box center − visual center      positive y moves down
 ```
@@ -53,7 +54,7 @@ The two readings fail in opposite directions:
 
 For a triangle, the two errors are almost equal, so the midpoint is the answer. In exact terms, the mass centroid of a solid triangle is a third of its height above its base. Its box center is at half its height. So, from box centering, the mass centroid moves the triangle up by a sixth of its height. The visual center moves it up by a twelfth.
 
-**The accent discount** is the condition on the `mass` line. It is for an accent, not for a second tone. When faint ink is more than 1/3 of the ink, the eye reads it with the rest of the mark. A discount would then move the whole mark toward the darker tone.
+**The accent discount** checks both luma and colour faint shares on the `mass` line. It is for an accent, not for a second tone. When faint ink is more than 1/3 of the ink, the eye reads it with the rest of the mark. A discount would then move the whole mark toward the darker tone.
 
 **The ink box** counts only pixels that are at least half opaque. Resampling leaves almost transparent pixels at the edges, and their color is noise after unpremultiplication. If the ink box counted them, it would grow to the edge of an accent that the mass centroid just discounted.
 
@@ -103,7 +104,7 @@ So the gate is a tolerance (1% or less off center), not zero. A residual below o
 |---|---|---|---|
 | `BACKGROUND_CONTRAST` | 0.02 | which pixels are background | an opaque export must measure like a transparent one |
 | `EXTENT_ALPHA` | 128 | which pixels set the ink box | half opaque, so edge pixels from resampling cannot grow the box |
-| `ACCENT_CONTRAST` | 0.6 | which ink is faint | the Amazon smile measures 0.35 on white and 0.65 inverted on black, and the threshold is between them |
+| `ACCENT_CONTRAST` | 0.6 | which ink is faint | legacy luma minority guard; retained for two-tone marks, independently of chroma promotion |
 | `ACCENT_MAX_SHARE` | 1/3 | when faint ink stops being an accent | the lighter PayPal blue is 41% of its mark and must keep its full weight |
 | `CENTER_BLEND` | 0.5 | where the visual center sits between extent and mass | box centering and mass centering miss a triangle by almost equal amounts in opposite directions |
 | size power | 0.5 | how strongly a set is equalized | it makes perceived sizes equal at one ink height; the icon-set calibration in [EVIDENCE.md](EVIDENCE.md) checks the equation, not human preference |
@@ -126,3 +127,19 @@ This is an implementation check, not independent perceptual validation.
 
 Measurement and cropping exclude alpha at or below 10/255 to reject invisible resampling noise.
 Reproduce the faint-input regression with `cd scripts && node --test v2-test.mjs`.
+
+
+## Colour revision checks
+
+Extent bounds are averaged over thresholds from 0.3 to 0.5, rather than switching at 0.6.
+This is a heuristic transition band, checked against both orange Amazon variants on white and cream.
+It is not a human calibration. Run `cd scripts && npm test` to reproduce those checks.
+The 0.6 split remains a minority guard, with separate luma and colour shares.
+Both shares must stay below one third before discounting; chroma cannot promote a second tone out of this guard.
+This preserves PayPal and prevents symmetric Mastercard from acquiring a large colour-driven translation.
+Run `node sites/optical-balance/colour-test.mjs` from the repository root for the logo snapshots.
+Grey weights remain identical; mixed-grey extent bounds can change inside the transition band.
+No archived validation readings were changed. The mixed-grey test records its intentional extent shift.
+Flattened colour edges do not scale chroma linearly with alpha; measure their composited RGB directly.
+Run `cd scripts && node --test --test-name-pattern="colour compositing" v2-test.mjs` for an explicit flattened-pixel contract.
+Yellow on white and blue on black can still receive large weights. Human colour preferences remain unvalidated.
