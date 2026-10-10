@@ -40,6 +40,13 @@ try {
     const check = spawnSync(process.execPath, [new URL('./optical.mjs', import.meta.url).pathname, 'check', join(out, 'after.png'), '--bg', '#fff', '--json'], { encoding: 'utf8' });
     assert.equal(check.status, 0, check.stdout + check.stderr);
     assert.equal(JSON.parse(check.stdout)[0].pass, true);
+    const amazonFile = new URL('fixtures/colour/amazon-color.svg', root).pathname;
+    const amazon = await renderPlacement(amazonFile, { container: 200, element: 112, plate: '#fff' });
+    await page.evaluate(html => { document.body.insertAdjacentHTML('beforeend', html); }, `<style>#amazon{width:200px;height:200px;display:flex;align-items:center;justify-content:center;background:white}#amazon svg{width:112px;height:112px;flex:none;transform:translate(${amazon.offset.x}%,${amazon.offset.y}%)}</style><div id="amazon">${await readFile(amazonFile, 'utf8')}</div>`);
+    await page.locator('#amazon').screenshot({ path: join(out, 'amazon-after.png') });
+    const amazonAfter = offCenter(await measureFile(join(out, 'amazon-after.png'), { bg: '#fff' }));
+    assert.ok(amazonAfter.pct <= 1, JSON.stringify(amazonAfter));
+    console.log('Colour Amazon browser PASS: '+JSON.stringify({ offset: amazon.offset, after: amazonAfter }));
     const text = page.locator('#text');
     await text.screenshot({ path: join(out, 'text-before.png') });
     const textMeasure = await measureFile(join(out, 'text-before.png'), { bg: '#fff' });
@@ -48,7 +55,7 @@ try {
     const textAfter = offCenter(await measureFile(join(out, 'text-after.png'), { bg: '#fff' }));
     assert.ok(textAfter.pct <= 1, JSON.stringify(textAfter));
     const values = await container.evaluate(el => ({ background: getComputedStyle(el).backgroundColor, foreground: getComputedStyle(el).color, dpr: devicePixelRatio }));
-    const report = { css, before, after, textAfter, ...values };
+    const report = { css, before, after, amazonAfter, textAfter, ...values };
     await writeFile(join(out, 'browser-proof.json'), JSON.stringify(report, null, 2)+'\n');
     console.log('Browser PASS: '+JSON.stringify(report));
 } finally {

@@ -49,7 +49,7 @@ async function measureSvg(art, bg) {
     const meta = await sharp(Buffer.from(art)).metadata();
     const edge = Math.max(meta.width, meta.height);
     const png = await sharp(Buffer.from(art), { density: (72 * DEFAULT_RASTER_EDGE) / edge }).ensureAlpha().png().toBuffer();
-    const m = measure(await toRaw(png), parseColor(bg).lum);
+    const m = measure(await toRaw(png), parseColor(bg));
     const r = (v) => Math.round(v * 1e5) / 1e5;
     return {
         ink: { x0: r(m.inkBox.left / m.width), y0: r(m.inkBox.top / m.height), x1: r((m.inkBox.left + m.inkBox.width) / m.width), y1: r((m.inkBox.top + m.inkBox.height) / m.height) },

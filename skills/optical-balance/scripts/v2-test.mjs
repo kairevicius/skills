@@ -39,8 +39,8 @@ test('near one-third two-tone readings assert numerical centroid and extent',()=
   const m=measure({data,width:100,height:1},255);
   const strong=100-faint;
   const expectedMass=faint===32?(strong*(strong/2)+faint*.16*(strong+faint/2))/(strong+faint*.16):50;
-  assert.ok(Math.abs(m.mass.x-expectedMass)<1e-9);assert.equal(m.extent.x,faint===32?34:50);
-  assert.ok(Math.abs(m.visual.x-((faint===32?34:50)+expectedMass)/2)<1e-9);
+  assert.ok(Math.abs(m.mass.x-expectedMass)<1e-9);assert.equal(m.extent.x,faint===32?42:50);
+  assert.ok(Math.abs(m.visual.x-((faint===32?42:50)+expectedMass)/2)<1e-9);
  }
 });
 test('linear visual size and alpha compositing have explicit numerical contracts',async()=>{
@@ -138,4 +138,104 @@ test('held-out manifest renders every archived shape with reproducible readings'
   assert.equal(expected.pass, true);
   assert.ok(placed.after.pct <= 1, name);
  }
+});
+
+test('colour Amazon keeps the mono placement direction without a large downward fix', async () => {
+ const path = name => new URL('../fixtures/colour/'+name, import.meta.url).pathname;
+ const options = {container:200, element:112, plate:'#ffffff', shape:'rect'};
+ const colour = await renderPlacement(path('amazon-color.svg'), options);
+ const mono = await renderPlacement(path('amazon.svg'), options);
+ assert.ok(Math.abs(colour.offset.y) < 4, JSON.stringify(colour.offset));
+ assert.ok(colour.offset.x < 0 && mono.offset.x < 0);
+ assert.ok(colour.offset.y > 0 && mono.offset.y > 0);
+ assert.ok(Math.abs(colour.offset.y-mono.offset.y) < 3);
+ assert.ok(colour.after.pct <= 1);
+});
+
+test('saturated orange contributes mass and stays in the strong-ink extent', () => {
+ const m = measure({width:2,height:1,data:Buffer.from([0,0,0,255,255,153,0,255])},255);
+ assert.equal(m.extentBox.width,2);
+ assert.ok(m.massCentroid.x > .8 && m.massCentroid.x < 1);
+ assert.ok(m.contrastArea > 1.6);
+});
+
+test('all neutral greys retain their original mass and size weights including alpha', () => {
+ for (const bg of [0,1e-7,17,17.5,128,255]) for (let grey=0;grey<=255;grey++) {
+  const contrast = Math.abs((.299*grey+.587*grey+.114*grey)-bg)/255;
+  if (contrast <= .02) continue;
+  const m = measure({width:1,height:1,data:Buffer.from([grey,grey,grey,128])},bg);
+  assert.ok(Math.abs(m.massArea-128/255*contrast*contrast)<1e-12);
+  assert.ok(Math.abs(m.contrastArea-128/255*contrast)<1e-12);
+ }
+});
+
+test('equal-luminance colour remains ink against a grey background through trim and warnings', async () => {
+ const cyan = file('equal-luminance.svg', svg('<rect x="20" y="20" width="60" height="60" fill="#00c2ff"/>'));
+ const m = await measureFile(cyan, {bg:'#8f8f8f',trim:true});
+ assert.equal(m.inkBox.width,614);
+ assert.equal(m.warnings.length,0);
+ assert.ok(m.massArea > 100000);
+ const orange = file('orange-on-orange.svg',svg('<rect width="100" height="100" fill="#ff9900"/>'));
+ await assert.rejects(measureFile(orange,{bg:'#ff9900'}),/no ink/);
+ const transparent = measure({width:1,height:1,data:Buffer.from([255,153,0,128])},255);
+ const opaque = measure({width:1,height:1,data:Buffer.from([255,153,0,255])},255);
+ assert.ok(Math.abs(transparent.massArea/opaque.massArea-128/255)<1e-12);
+});
+
+test('every weighting command accepts colour and preserves finite JSON readings', () => {
+ const amazon = new URL('../fixtures/colour/amazon-color.svg',import.meta.url).pathname;
+ for (const cmd of ['measure','place','strip','equalize','tile','check','frame']) {
+  const r = cli(cmd,amazon,'--container','200','--element','112','--bg','#fff','--plate','#fff','--scale','2','--out',join(tmp,'colour-'+cmd+'.png'),'--json');
+  assert.ok([0,1].includes(r.status),cmd+': '+r.stderr);
+  const result = JSON.parse(r.stdout);
+  const reading = cmd==='place'?result.after.pct:cmd==='strip'?result.logos[0].perceived:cmd==='check'?result[0].pct:cmd==='tile'||cmd==='frame'?result.result.massArea:result[0].massArea;
+  assert.ok(Number.isFinite(reading) && reading >= 0,cmd+': '+r.stdout);
+  if (cmd==='place') assert.ok(Math.abs(result.offset.y)<4);
+  if (cmd==='measure') assert.ok(result[0].accentShare<.1);
+ }
+});
+
+
+test('orange variants on white and cream stay within 3px plus one raster step of mono Amazon', async () => {
+ const { readFileSync } = await import('node:fs');
+ const source = readFileSync(new URL('../fixtures/colour/amazon-color.svg', import.meta.url), 'utf8');
+ for (const plate of ['#ffffff','#FFF8E7']) {
+  const options = {container:200,element:112,plate,shape:'rect'};
+  const mono = await renderPlacement(new URL('../fixtures/colour/amazon.svg',import.meta.url).pathname,options);
+  for (const orange of ['#FF9900','#FFB347']) {
+   const variant = file(orange.slice(1)+plate.slice(1)+'.svg',source.replace(/#ff9900/gi,orange));
+   const colour = await renderPlacement(variant,options);
+   assert.ok(Math.hypot(colour.offset.px.x-mono.offset.px.x,colour.offset.px.y-mono.offset.px.y)<=3.25,JSON.stringify({orange,plate,colour:colour.offset,mono:mono.offset}));
+   assert.ok(colour.after.pct<=1);
+  }
+ }
+});
+test('frame ignores a near-black tinted backdrop at photo tolerance', async () => {
+ const photo=file('tinted-photo.svg',svg('<rect width="200" height="100" fill="#050414"/><rect x="80" y="20" width="40" height="60" fill="#fff"/>',200,100));
+ const f=await renderFrame(photo,{size:128,bg:'#0a0a08',circle:true});
+ assert.ok(f.source.inkBox.width < f.source.width/2,JSON.stringify(f.source.inkBox));
+ assert.ok(f.source.inkBox.height < f.source.height*.7);
+});
+
+
+test('colour compositing uses the flattened RGB and derives background luma', async () => {
+ const raw={width:1,height:1,data:Buffer.from([255,153,0,128])};
+ const png=await sharp(raw.data,{raw:{width:1,height:1,channels:4}}).flatten({background:'#fff'}).png().toBuffer();
+ const flattened=await toRaw(png);
+ assert.deepEqual([...flattened.data],[255,203,127,255]);
+ const m=measure(flattened,{r:255,g:255,b:255,lum:0});
+ assert.equal(m.bgLum,255);
+ assert.ok(Math.abs(m.massArea-0.2278458450124438)<0.00001);
+ assert.throws(()=>measure(raw,{lum:255}),/invalid background/);
+});
+test('extent varies continuously across the former strong-ink threshold', () => {
+ const sample=g=>measure({width:100,height:1,data:Buffer.from(Array.from({length:100},(_,x)=>x<80?[0,0,0,255]:[g,g,g,255]).flat())},255);
+ assert.ok(Math.abs(sample(101).visual.x-sample(103).visual.x)<.1);
+});
+
+test('equal-luma cyan backdrop warns as a tile rather than a faint rectangle', async () => {
+ const tile=file('cyan-backdrop.svg',svg('<rect width="100" height="100" fill="#00c2ff"/><rect x="20" y="20" width="60" height="60" fill="#000"/>'));
+ const m=await measureFile(tile,{bg:'#8f8f8f'});
+ assert.ok(m.warnings.some(w=>w.includes('tile or badge')),m.warnings.join('\n'));
+ assert.ok(!m.warnings.some(w=>w.includes('faint rectangle')));
 });

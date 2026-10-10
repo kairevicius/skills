@@ -158,13 +158,13 @@ ${fig(F["step-ink"], F.stepSize.w, F.stepSize.h, `A two-tone mark on the centroi
 <p>Off center is the distance from the visual center to the center of the container, as a percentage of the shorter side of the container. ${box}The dashed box is the ink box, and the numbers around it give the space to the container, in pixels of the figure. They fade in and out on a 7-second loop.</p>
 
 <h2>The Amazon smile</h2>
-<p>The Amazon wordmark has black letters and an orange smile. On white, the smile has about a third of the contrast of the letters. So the eye reads the letters as the logo, and the smile hangs below them. Geometric centering puts the letters too high. Counting every pixel the same still leaves them ${abs(N.amazon.result.alpha.dy)}px high.</p>
-<p>Contrast squared fixes it, together with one more rule: the extent comes from the dark letters only. The offset is ${N.amazon.dyPct}% of the height of the mark, down. That is the old advice that a logo should sit a bit lower, with a number on it.</p>
+<p>The Amazon wordmark has black letters and an orange smile. OKLab chroma makes the orange smile strong ink on white. It contributes to both mass and extent. Counting every pixel the same still leaves them ${abs(N.amazon.result.alpha.dy)}px high.</p>
+<p>Contrast squared fixes it, together with one more rule: the extent changes smoothly across a contrast band; the smile contributes without crossing one hard threshold. The offset is ${N.amazon.dyPct}% of the height of the mark, down. That is the old advice that a logo should sit a bit lower, with a number on it.</p>
 <div class="pair">
 ${fig(F["amazon-box"], PAIR_W, PAIR_W, `Geometric centering. The visual center is ${abs(N.amazon.result.box.dy)}px above the tile center.`, "tile")}
-${fig(F["amazon-visual"], PAIR_W, PAIR_W, `Optical centering. The visual center is ${off("amazon-visual")}px from the tile center. The letters sit on the line, and the smile hangs below.`, "tile")}
+${fig(F["amazon-visual"], PAIR_W, PAIR_W, `Optical centering. The visual center is ${off("amazon-visual")}px from the tile center. The full mark contributes to the placement.`, "tile")}
 </div>
-<p>The background is an input, not a detail. On black, the inverted smile has a contrast of ${N.amazonDark.smileContrastDark}. That is above ${ACCENT_CONTRAST}, the threshold where ink stops being faint. So the smile counts as part of the mark, and the offset drops to ${N.amazonDark.dyPct}%. One logo in two themes needs two offsets.</p>
+<p>The background is an input, not a detail. On black, the inverted smile has a contrast of ${N.amazonDark.smileContrastDark}. That is above the extent transition band. The smile therefore contributes to the extent, and the offset is ${N.amazonDark.dyPct}%. Measure each theme against its actual plate; these offsets are close, and neither is universal.</p>
 <div class="pair">
 ${fig(F["amazon-dark-box"], PAIR_W, PAIR_W, `Geometric centering on black. The visual center is ${abs(N.amazonDark.boxDy)}px above the tile center.`, "tile")}
 ${fig(F["amazon-dark-visual"], PAIR_W, PAIR_W, `Optical centering on black. The visual center is ${off("amazon-dark-visual")}px from the tile center. The smile counts, so the letters sit higher than on white.`, "tile")}
@@ -172,7 +172,7 @@ ${fig(F["amazon-dark-visual"], PAIR_W, PAIR_W, `Optical centering on black. The 
 
 <h2>When the faint part is not an accent</h2>
 <p>Giving faint ink less weight can also go wrong. The lighter blue of PayPal is ${N.paypal.accentShare}% of its ink. That is a second color, not an accent. A discount would push the visual center ${abs(N.paypal.massShiftPct)}% of the width toward the darker monogram, and the wordmark would sit off its tile.</p>
-<p>So the discount only applies when faint ink is at most a third of the mark. Above that share, every pixel counts at its full alpha weight. The optical result then moves the wordmark only ${abs(N.paypal.shiftPct)}% of its width, toward the heavier monogram.</p>
+<p>So the discount only applies when both the luma faint share and the colour faint share are at most a third of the mark. Above that share, every pixel counts at its full alpha weight. The optical result then moves the wordmark only ${abs(N.paypal.shiftPct)}% of its width, toward the heavier monogram.</p>
 <div class="pair">
 ${fig(F["paypal-box"], PAIR_W, Math.round(PAIR_W / 2), `Geometric centering on a wide tile. The visual center is ${abs(N.paypal.plainDx)}px left of the tile center, because the monogram has more ink than the letters.`, "tile")}
 ${fig(F["paypal-visual"], PAIR_W, Math.round(PAIR_W / 2), `Optical centering, ${abs(N.paypal.dx)}px to the right. The visual center is ${N.paypal.convergedPx}px from the tile center. Both blues count at full weight.`, "tile")}
@@ -236,7 +236,7 @@ ${fig(F["lockup-after"], PAIR_W, Math.round(PAIR_W / 2), `Visual centers aligned
 
 <h2>Equal height is not equal size</h2>
 <p>Give nine logos the same height, and the row looks uneven. ${list(largest)} carry the most ink and look largest. ${smallest} looks smallest.</p>
-<p>The size rule scales every logo to the perceived size of the smallest one, so no logo grows past its cell. It measures the whole set at once, so a line break cannot change the scale of a logo. Each logo also sits on its own visual center, so the Amazon letters stay on the line.</p>
+<p>The size rule scales every logo to the perceived size of the smallest one, so no logo grows past its cell. It measures the whole set at once, so a line break cannot change the scale of a logo. Each logo also sits on its own visual center, so the whole Amazon mark uses the same placement rule.</p>
 <figure class="wide">${label(F["strip-before"])}${img(F["strip-before"], F.stripSize.width, F.stripSize.height, "Nine logos on two rows at equal height")}</figure>
 <figure class="wide">${label(F["strip-after"], "Equal perceived size")}${img(F["strip-after"], F.stripSize.width, F.stripSize.height, "Nine logos on two rows at equal perceived size, with optical centering")}</figure>
 <p>Size spread is the difference between the largest and the smallest perceived size, as a percentage of the smallest. It goes from ${N.stripVerify.spreadBefore}% to ${N.stripVerify.spreadAfter}%.</p>
@@ -265,10 +265,11 @@ ${fig(F["frame-visual"], PAIR_W, PAIR_W, `The crop moved ${N.frame.moved} in the
 
 <h2>How the measurement works</h2>
 <p>This is a reproducible heuristic. Scoring its own placements checks implementation consistency, not human perception. No blind preference results are available.</p>
-<p>Everything above comes from one pass over the pixels. Vector input is rasterized first, at a ${DEFAULT_RASTER_EDGE}px longest edge, so an SVG measures like the bitmap a browser paints. Each pixel gets two weights, one for position and one for size.</p>
+<p>The raster pass gathers weights and contrast bounds; a boundary pass smooths the extent. Vector input is rasterized first, at a ${DEFAULT_RASTER_EDGE}px longest edge, so an SVG measures like the bitmap a browser paints. Each pixel gets two weights, one for position and one for size.</p>
 <pre>luma           = 0.299 R + 0.587 G + 0.114 B     Rec. 601
-contrast       = |luma − background luma| / 255  0 to 1
-                                                 at ${BACKGROUND_CONTRAST} or less, the pixel is background
+contrast       = min(1, hypot(luma contrast, OKLab chroma distance / 0.25))
+ink contrast   = hypot(luma contrast, OKLab chroma distance)
+                 at ${BACKGROUND_CONTRAST} or less, the pixel is background
 mass weight  w = alpha × contrast²               for position
 size weight  s = alpha × contrast                for size</pre>
 <div class="steps">
@@ -277,13 +278,13 @@ ${fig(F["weight-alpha"], F.methodPanel.w, F.methodPanel.h, `Every visible pixel 
 ${fig(F["weight-contrast"], F.methodPanel.w, F.methodPanel.h, `Weighted by contrast squared. The letters keep ${N.method.letterWeight}, and the smile drops to ${N.method.smileWeight}.`, "", "Weighted by contrast²")}
 </div>
 <p>Squaring the contrast is what lets an accent hang. At half contrast, a pixel gets a quarter of the weight. So the letters keep a weight of ${N.method.letterWeight}, and the smile drops to ${N.method.smileWeight}. Size uses linear contrast instead. The squared form turns differences in color into differences in size. With it, a coral wordmark would measure a third smaller than a black one of the same shape.</p>
-<p>Pixels within ${BACKGROUND_CONTRAST} contrast of the background do not count. So background pixels are excluded; translucent edges still change after compositing. A white background in the file does not pull every centroid toward the box center.</p>
+<p>Pixels within ${BACKGROUND_CONTRAST} unscaled ink contrast of the background do not count. So background pixels are excluded; translucent edges still change after compositing. A white background in the file does not pull every centroid toward the box center.</p>
 <pre>alpha centroid   Σ(alpha · p) / Σ alpha
 mass centroid    Σ(w · p) / Σ w
 accent share     Σ alpha where contrast &lt; ${ACCENT_CONTRAST}  ÷  Σ alpha
-mass             accent share ≤ ${ACCENT_SHARE_LABEL} ? mass centroid : alpha centroid
+mass             both colour and luma shares ≤ ${ACCENT_SHARE_LABEL} ? mass centroid : alpha centroid
 extent           center of the ink box, pixels with alpha ≥ ${EXTENT_ALPHA}
-                 (strong ink only, while the accent discount applies)
+                 (bounds averaged across contrast 0.3–0.5 while discounted)
 visual center    extent + ${CENTER_BLEND} × (mass − extent)
 offset           container center − visual center     positive y moves down</pre>
 <figure class="wide">${img(F["method-centers"], F.methodDiagram.w, F.methodDiagram.h, "The extent center, the mass centroid, and the visual center on one mark")}</figure>
@@ -294,12 +295,14 @@ perceived size   √( visual size × ink height )
 baseline         min( row height ÷ ink height , max width ÷ ink width )
 correction       target perceived size ÷ baseline perceived size</pre>
 <p>The method fits each element to the row first, then scales it toward a target. The target is the smallest baseline size, or one named element when a set has a keyline.</p>
-<p>Six numbers drive all of it, and a measurement set each one:</p>
+<p>These parameters drive the heuristic. Fixture checks constrain them; they are not independent human calibration:</p>
 <div class="scroll"><table>
 <tr><th>constant</th><th class="num">value</th><th>controls</th><th>set by</th></tr>
 <tr><td>background contrast</td><td class="num">${BACKGROUND_CONTRAST}</td><td>which pixels are background, not ink</td><td>low enough that background pixels are excluded; translucent edges still change after compositing</td></tr>
 <tr><td>extent alpha</td><td class="num">${EXTENT_ALPHA}</td><td>which pixels set the ink box</td><td>half opaque, so edge pixels from resampling cannot grow the box</td></tr>
-<tr><td>accent contrast</td><td class="num">${ACCENT_CONTRAST}</td><td>which ink is faint</td><td>the Amazon smile measures ${N.amazonDark.smileContrastLight} on white and ${N.amazonDark.smileContrastDark} inverted on black, and the threshold is between the two</td></tr>
+<tr><td>accent contrast</td><td class="num">${ACCENT_CONTRAST}</td><td>which ink is faint</td><td>legacy luma minority split, retained alongside colour contrast to protect two-tone marks</td></tr>
+<tr><td>extent transition</td><td class="num">0.3–0.5</td><td>smooth extent bounds</td><td>a broad band below the minority split, checked against both orange smiles on white and cream</td></tr>
+<tr><td>chroma scale</td><td class="num">0.25</td><td>colour weighting</td><td>heuristic scale; the colour regression fixtures constrain stability, not perception</td></tr>
 <tr><td>accent max share</td><td class="num">${ACCENT_SHARE_LABEL}</td><td>when faint ink stops being an accent</td><td>the lighter PayPal blue is ${N.paypal.accentShare}% of its mark and must keep its full weight</td></tr>
 <tr><td>center blend</td><td class="num">${CENTER_BLEND}</td><td>where the visual center sits between extent and mass</td><td>box centering and mass centering miss a triangle by ${abs(N.intro["step-box"].dy)}px and ${abs(N.intro["step-mass"].dy)}px, in opposite directions</td></tr>
 <tr><td>size power</td><td class="num">0.5</td><td>how strongly a set is equalized</td><td>seven variants of the logo strip, rendered side by side; at one ink height it makes the perceived sizes equal</td></tr>
@@ -318,7 +321,7 @@ correction       target perceived size ÷ baseline perceived size</pre>
 <p>The procedure has five steps:</p>
 <ol>
 <li>Skip an element with its own background, such as a disc badge or a full-bleed image.</li>
-<li>Measure the element against the luminance of the surface that it renders on.</li>
+<li>Measure the element against the colour of the surface that it renders on.</li>
 <li>Apply the offset where the position is set: the asset bake, the shared component, the icon set, or the layout. Never one instance.</li>
 <li>Measure the rendered result, not the source, and correct the residual until it stops changing.</li>
 <li>Accept a result that is 1% or less off center, or a set with a size spread of 3% or less. Record what the output measured.</li>
@@ -346,7 +349,7 @@ node optical.mjs frame    photo.jpg --out avatar.png --bg "#0a0a08" --tolerance 
 <h2>What it gets wrong</h2>
 <p>The wrong background gives a wrong number that looks right. Measured against black instead of white, the Amazon mark loses its letters to the background, and the offset comes out as ${N.amazonWrongBg.dyPct}% instead of ${N.amazon.dyPct}%. Nothing in the output warns you, so the background is always an explicit input.</p>
 <p>Busy photos have no plain backdrop to contrast with, so the visual center goes to the busiest region. They need a detector first.</p>
-<p>Hue is the limit I do not know how to solve yet. The method measures luminance contrast only, so a saturated red and a gray of the same luminance get the same weight. The red still looks heavier. If you have a model for the weight of hue that holds up on real logos, I would like to see it.</p>
+<p>Luma + OKLab chroma contrast combines luma contrast with normalised OKLab chroma distance. Neutral greys retain their existing weights. This heuristic still needs human preference validation.</p>
 
 <h2>Prior art</h2>
 <p>Designers already make these corrections by eye. The skill puts a number on them.</p>

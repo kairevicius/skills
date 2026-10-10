@@ -1,6 +1,6 @@
 # Evidence
 
-Each result in this file comes with the command that reproduces it. Run the commands from the skill folder, after `npm ci` in `scripts/`. The logo examples use files from the repository's `sites/optical-balance/sources`, so clone the repository to rerun them. The worked outputs below are historical, from 2026-10-03; v2 changes targets and final-pixel scoring. If a rerun gives a different output, the rerun is correct, and this file needs an update.
+Each result in this file comes with the command that reproduces it. Run the commands from the skill folder, after `npm ci` in `scripts/`. The logo examples use files from the repository's `sites/optical-balance/sources`, so clone the repository to rerun them. The Amazon tile and equalization outputs were rerun with luma + OKLab chroma contrast (OKLab chroma plus luminance contrast). Other examples remain historical. If a rerun gives a different output, the rerun is correct, and this file needs an update.
 
 ## Worked example: the Amazon wordmark on a tile
 
@@ -11,44 +11,37 @@ node scripts/optical.mjs tile ../../sites/optical-balance/sources/amazon.svg --o
 The script crops the mark to its ink, fits it into the art box of a 256px tile, and measures it against white. Then it places the mark and measures the baked tile again:
 
 ```
-1. artwork cropped to its ink and fitted into the art box (visual centering): the offset to apply is here
+1. artwork cropped to its ink and fitted into the art box (visual centering). The bake applies this offset; for a component, use place instead.
 image            195x59, background luminance 255.0
 ink box          195x59 at 0,0
 box center       97.5, 29.5
-alpha centroid   95.4, 22.3
-mass centroid    97.1, 18.2  (contrast-weighted, accent discounted)
-extent center    97.5, 17.5  (box of the ink the eye reads, 195x35)
-visual center    97.3, 17.8  (extent moved 0.5 of the way to mass)
-faint-ink share  15% below contrast 0.6
-visual size      59.8px (sqrt of contrast-weighted ink area)
-perceived size   59.4px (geometric mean of visual size and ink height; equal across an equalized set)
-offset to apply  x +0.2px (+0.1%), y +11.7px (+19.8%)  (positive y moves the element down)
-css              transform: translate(0.11%, 19.78%)  (percent of this image's own box, as placed)
-off center       19.78% of the shorter side (11.7px)  (to judge a rendered result, use check)
+alpha centroid   95.4, 22.2
+mass centroid    96.1, 20.6  (contrast-weighted, accent discounted)
+extent center    97.5, 29.5  (box of the ink the eye reads, 195x59)
+visual center    96.8, 25.0  (extent moved 0.5 of the way to mass)
+faint-ink share  0% below contrast 0.6
+visual size      61.7px (sqrt of contrast-weighted ink area)
+perceived size   60.4px (geometric mean of visual size and ink height; equal across an equalized set)
+offset to apply  x +0.7px (+0.4%), y +4.5px (+7.6%)  (positive y moves the element down)
+off center       7.65% of the shorter side (4.5px)  (to judge a rendered result, use check)
 
 2. baked tile amazon-tile.png: its off center line is the gate
 image            256x256, background luminance 255.0
-ink box          195x59 at 31,110
+ink box          195x59 at 31,103
 box center       128.0, 128.0
-alpha centroid   126.6, 132.4
-mass centroid    128.2, 128.1  (contrast-weighted, accent discounted)
-extent center    128.5, 127.5  (box of the ink the eye reads, 195x35)
-visual center    128.3, 127.8  (extent moved 0.5 of the way to mass)
-faint-ink share  31% below contrast 0.6
-visual size      59.8px (sqrt of contrast-weighted ink area)
-perceived size   59.4px (geometric mean of visual size and ink height; equal across an equalized set)
-offset to apply  x -0.3px (-0.1%), y +0.2px (+0.1%)  (positive y moves the element down)
-css              transform: translate(-0.13%, 0.08%)  (percent of this image's own box, as placed)
-off center       0.15% of the shorter side (0.4px)  PASS at 1%
+alpha centroid   126.6, 125.5
+mass centroid    127.1, 123.7  (contrast-weighted, accent discounted)
+extent center    128.5, 132.5  (box of the ink the eye reads, 195x59)
+visual center    127.8, 128.1  (extent moved 0.5 of the way to mass)
+faint-ink share  20% below contrast 0.6
+visual size      62.0px (sqrt of contrast-weighted ink area)
+perceived size   60.5px (geometric mean of visual size and ink height; equal across an equalized set)
+offset to apply  x +0.2px (+0.1%), y -0.1px (-0.0%)  (positive y moves the element down)
+off center       0.08% of the shorter side (0.2px)  PASS at 1%
 ```
 
-How to read it:
-
-- The extent center (y 17.5) uses the 35px-tall letters only, because the smile is faint ink at a 15% share. The ink box is 59px tall, because it includes the smile.
-- The alpha centroid (y 22.3) counts the smile at full weight. It would leave the letters too high.
-- The offset moves the mark down by 11.7px, which is 19.8% of its height.
-- The baked tile is 0.4px off center: 0.15% of the tile, which passes the 1% gate.
-- The faint-ink share rises from 15% to 31% in the baked tile. The tile is opaque, and its anti-aliased edges add faint ink. The share stays below 1/3, so the discount still applies. A mark with a share near 1/3 could switch.
+OKLab chroma now makes the smile strong ink, so the extent includes the whole mark.
+The smaller correction replaces the historical luminance-only placement.
 
 ## Worked example: a nine-logo strip
 
@@ -57,26 +50,27 @@ node scripts/optical.mjs equalize ../../sites/optical-balance/sources/{amazon,go
 ```
 
 ```
-Historical target visual size 23.4px at row height 40px
+target perceived size 33.9px at row height 40px
 file                  equal-height  visual size  correction     ink (w x h)    file (w x h)
-amazon.svg                  132x40         40.7      x0.758      100.2x30.3      100.4x30.3
-google.svg                  121x40         26.3      x0.943      114.6x37.7      115.7x39.1
-stripe.svg                   96x40         30.3      x0.878       84.5x35.1       84.5x35.1
-slack.svg                   158x40         44.6      x0.724      114.5x29.0      115.0x29.3
-shopify.svg                 140x40         38.6      x0.778      109.1x31.1      109.2x34.2
-apple.svg                    33x40         28.7      x0.902       29.4x36.1       29.4x36.1
-mastercard.svg               52x40         28.5      x0.906       46.7x36.2       46.7x36.2
-netflix.svg                 148x40         41.7      x0.749      110.7x29.9      110.7x29.9
-airbnb.svg                  128x40         23.4      x1.000      128.0x40.0      128.0x40.0
+amazon.svg                  132x40         42.1      x0.826      109.3x33.1      109.5x33.1
+google.svg                  121x40         32.4      x0.942      114.4x37.7      115.5x39.0
+stripe.svg                   96x40         39.2      x0.856       82.3x34.2       82.3x34.2
+slack.svg                   158x40         46.4      x0.787      124.4x31.5      125.0x31.9
+shopify.svg                 140x40         40.4      x0.843      118.2x33.7      118.3x37.1
+apple.svg                    33x40         28.7      x1.000       32.6x40.0       32.6x40.0
+mastercard.svg               52x40         35.0      x0.907       46.7x36.3       46.7x36.3
+netflix.svg                 148x40         47.7      x0.776      114.7x31.0      114.7x31.0
+airbnb.svg                  128x40         31.2      x0.960      122.9x38.4      122.9x38.4
 ink: the visible artwork at its new size. file: the whole file at the same scale, padding included; use it to size an <img> of the file as it is.
+These are the computed sizes. strip renders them, corrects the rounding, and checks the result.
 ```
 
 How to read it:
 
-- At equal height, Slack, Netflix, and Amazon have the largest visual sizes. Airbnb has the smallest, so it is the target, and it keeps its full height.
+- At equal height, Netflix, Slack, and Amazon have the largest visual sizes. Apple sets the smallest perceived-size target and keeps its height.
 - Apple and Mastercard are compact marks with small visual sizes at equal height. They shrink less than the wide wordmarks.
 - The `file` column is larger than the `ink` column where the SVG has padding, as Google and Shopify do. Use it to size an `<img>` of the file.
-- `node scripts/optical.mjs strip <same files> --out strip.png --height 40` renders each file at its printed height and measures a size spread of 0.73%.
+- `node scripts/optical.mjs strip <same files> --out strip.png --height 40` renders each file at its printed height and measures a size spread of 2.0815%.
 
 ## Calibration: the size power on an icon set
 
@@ -129,9 +123,9 @@ Each case is a section of [the write-up](https://kairevicius.github.io/skills/op
 
 | case | what it shows |
 |---|---|
-| a two-tone mark on a tile (Amazon) | contrast squared and the strong-ink extent put the letters on the center line |
-| the same mark in dark mode | the background decides which ink is faint, so each theme has its own offset |
-| when not to discount (PayPal) | above 1/3, faint ink is a second tone and keeps its full weight |
+| a two-tone mark on a tile (Amazon) | luma + OKLab chroma contrast gives the smile mass and extent influence |
+| the same mark in dark mode | the background affects weights; each theme is measured against its actual plate |
+| when not to discount (PayPal) | above 1/3 in either luma or colour contrast, faint ink is a second tone and keeps its full weight |
 | icons in round buttons | a play icon moves right, an arrow moves left |
 | a caps label in a pill | capitals sit high in the em box; letter-spacing adds a trailing gap |
 | initials in an avatar disc | each letter needs its own offset |
@@ -153,3 +147,69 @@ Designers already make these corrections by eye. The skill measures them. Cite t
 ## History
 
 The method started in September 2026 on a pipeline that bakes company logos into square tiles. The Amazon wordmark looked too high on its white tile, although the bake used alpha-centroid centering. The accent discount came first. The 1/3 limit came next, when the two PayPal blues moved off center under the discount. The size rule came last, when a logo strip at equal height looked uneven. In October 2026, cold-agent tests and the held-out validation above added the input warnings, `place`, `check`, and the size correction in `strip`. A second cold round made `strip` render each whole file as it ships. Its earlier check on cropped copies passed a row that measured 3–4% as placed.
+
+
+## Colour review: main, first pass, final
+
+Run `node sites/optical-balance/colour-test.mjs` for the final snapshots.
+The comparison runner is archived in `/workspace/codex/logs/ob-colour`; run `node comparison.mjs` there.
+Each pair below is horizontal and vertical translation, as percentages of the whole source image box on white.
+These source measurements differ from the rendered Amazon placement tests.
+
+| Logo | main x%, y% | first pass x%, y% | final x%, y% |
+|---|---:|---:|---:|
+| amazon | +0.1096, +19.9014 | +0.3632, +7.5638 | +0.4398, +6.9406 |
+| google | -0.5470, +0.9382 | -0.7672, +0.7823 | -0.5470, +0.9382 |
+| stripe | +0.1449, -0.2278 | +0.1450, -0.2277 | +0.1449, -0.2278 |
+| slack | -4.9320, -1.5781 | -2.7061, -1.9427 | -1.3317, -1.3889 |
+| shopify | +3.5558, -2.0091 | -2.0172, -2.3020 | +3.5558, -2.0091 |
+| apple | +0.5478, -4.4266 | +0.5478, -4.4266 | +0.5478, -4.4266 |
+| mastercard | -0.0125, +3.3207 | +3.6532, +2.5837 | -0.0125, +3.3207 |
+| netflix | +1.8745, +2.4974 | +1.8749, +2.4967 | +1.8751, +2.4973 |
+| airbnb | -0.0481, -2.1200 | -0.0472, -2.1201 | -0.0481, -2.1200 |
+| paypal | +3.7544, +3.2020 | +3.7544, +3.2020 | +3.7544, +3.2020 |
+
+The first pass promoted Mastercard's yellow into strong ink, disabling the former two-tone guard.
+Unequal colour weights then pulled a symmetric mark toward red, creating the positive horizontal correction.
+Shopify's lighter green crossed the threshold before its darker green, producing the offset flip.
+`hypot` restores their contrast ordering but alone still bypasses the two-tone guard.
+The final guard checks both luma and colour shares, restoring Mastercard, Shopify, and PayPal to main's translations.
+Amazon retains colour weighting because its smile remains a minority by either measure.
+The snapshot test covers all ten sources, including PayPal outside the nine-logo strip.
+
+Grey comparison covers every icon fixture on white and dark plates, plus both neutral Amazon fixtures.
+Run the archived `grey-comparison.mjs`; its raw results are in `grey-comparison.json`.
+All neutral-plate fixture offsets and held-out validation placement readings remain unchanged; `recorded.json` is untouched.
+Mixed-grey marks in the transition band can change: the existing minority two-tone test now has extent x=42 instead of 34.
+Its visual x changes from 35.750547 to 39.750547, reducing the horizontal correction by 4px.
+This is intentional smoothing, not an unchanged-grey claim; the weight and size formulae remain identical for neutral greys.
+Run `cd skills/optical-balance/scripts && npm test` for this explicit grey contract.
+
+The colour placement tests use a 3px target plus one 0.25px raster step at default 4x rendering.
+The worst colour-versus-mono vertical difference is 3.192px, for the lighter smile on cream.
+Run `node comparison.mjs` from the archived review directory for every main, first-pass, and final placement reading.
+These gates check numerical stability, not independent perceptual preference.
+
+Visual inspection used a three-column contact sheet of all sources, with box guides and measured centre markers.
+The final Mastercard marker returns to the symmetry axis; Shopify and PayPal return to their main markers.
+Amazon's final marker includes the smile; Slack moves toward the coloured symbol as its chroma gains weight.
+Google and Airbnb keep main's markers through the two-tone guard; Apple is unchanged.
+Stripe and Netflix differ only slightly in raster edge weights.
+The sheet is `/workspace/codex/logs/ob-colour/logo-visual.png`, generated by the archived `visual.mjs`.
+Inspection found no extra horizontal symmetry defect. It does not replace independent human preference testing.
+
+The same Vermeer frame input was also compared against main and the first pass.
+Run the archived `frame-comparison.mjs`; raw values are in `frame-comparison.json`.
+Its ink box is 1779×1496 on main and final, versus the erroneous 2780×1498 first-pass box.
+The final crop starts at (1088,137), versus main's (1086,112), with the same 1348px side.
+The vertical crop change is intentional colour weighting and extent smoothing after background exclusion; it is not a bit-identical photo result.
+The three crops were inspected in `frame-visual.png`; the face and head remain intact, with a small upward subject shift.
+Frame remains contrast-driven and cannot identify the person or apply a portrait composition rule.
+
+`hypot` alone moves PayPal to (+5.1664%, +3.6045%) and Mastercard to (+2.9134%, +2.9145%).
+The final two-share guard restores their main offsets, as the table shows.
+Run the archived `metric-comparison.mjs` for the tone ordering, classification distances, and guard census.
+For (5,4,20) on #0a0a08, classification is 0.0451; weighting is 0.1715.
+Only classification is compared against the frame tolerance of 0.15.
+The cached reader converts its background once per operation and caches chroma and luma by RGB.
+No new performance measurement or speedup is claimed.

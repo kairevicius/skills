@@ -41,11 +41,12 @@ These are the words that the script prints. Use each one with this meaning only.
 
 - **element size**: the size of the file's own box as the layout places it, padding included. It is the box of the `<img>` or `<svg>`, not of its ink.
 - **box center**: the center of the image as the layout places it.
-- **ink**: pixels with a contrast above 0.02 against the background.
+- **contrast**: luma + OKLab chroma contrast from the background: `min(1, hypot(luma contrast, OKLab chroma distance / 0.25))`.
+- **ink**: pixels above 0.02 unscaled `hypot(luma contrast, OKLab chroma distance)` against the background.
 - **faint ink**: ink with a contrast below 0.6. Strong ink has a contrast of 0.6 or more.
-- **accent discount**: when faint ink is at most 1/3 of the ink, the faint ink is an accent and counts for less.
+- **accent discount**: both colour and luma faint shares must be at most 1/3 before contrast weighting sets the centre.
 - **ink box**: the smallest box around all ink that is at least half opaque.
-- **extent center**: the center of the ink box. With the accent discount, it uses the strong ink only.
+- **extent center**: the center of the ink box. With the accent discount, bounds are averaged across contrast thresholds from 0.3 to 0.5.
 - **mass centroid**: the mean position of the ink, weighted by alpha × contrast² with the accent discount, or by alpha without it.
 - **visual center**: the point halfway between the extent center and the mass centroid.
 - **offset**: the move that puts the visual center on the container center. Positive y moves down.
@@ -118,7 +119,7 @@ Give the user the value, where to put it, and the measured off center or size sp
 - **Self-backgrounded elements** (a disc mark, an app icon on its own colored square, a full-bleed image). `place` measures the artwork inside the backdrop and prints `inside backdrop`; `measure --bg auto` does the same. Skip centering if it passes. In a set, size it like any other logo.
 - **A backdrop that shows in the container.** A white or colored square on a tile of another color is a source problem, not a centering problem. Tell the user, and ask for a transparent version of the file.
 - **Single-color marks.** The weights give the alpha centroid. Run the measurement anyway, because it confirms the case.
-- **Two-tone marks.** Read `faint-ink share`. At 33% or less, the accent discount applies. Above 33%, all ink counts. Never override this by hand. If the share is near 33%, compare the source and the output, because anti-aliased edges add faint ink.
+- **Two-tone marks.** Read `faint-ink share`. Both colour and luma shares must be at most 1/3. Above either share, all ink counts. Never override this by hand. If the share is near 33%, compare the source and the output, because anti-aliased edges add faint ink.
 - **Solid asymmetric shapes** (triangle, arrow, chevron, pin, heart). Keep `--blend 0.5`. From box centering, the mass centroid moves a triangle up by a sixth of its height, twice the move of the visual center.
 - **Stroke icons.** Measure the icon as an outline, as the screen shows it. Give the stroke width that renders: a `stroke-width` of 2 in a 24-unit viewBox is 1.67px at a 20px icon. Well-drawn sets often place their asymmetric glyphs optically already. Lucide's play icon measures 0.1% off center when its frame is centered.
 - **An icon beside a label.** Measure the icon and the label together against the button. The measurement determines the padding; no fixed ratio applies. Put it into the button component.
@@ -182,7 +183,7 @@ The browser regression reproduces this procedure: `npm run test:browser` in the 
 
 - **Alpha-only weights** under-correct a two-tone mark, because they count faint ink at full weight. Keep the default weights.
 - **Equal ink area** (`--strength 1`) shrinks wide wordmarks until they look smaller than a compact solid mark. Keep the default power of 0.5.
-- **Saturated color.** The method measures luminance contrast only. A saturated red and a gray of the same luminance get the same weight, but the red looks heavier. Treat the size of a strongly colored mark as a first value, and confirm it in context.
+- **Saturated color.** OKLab chroma contributes to luma + OKLab chroma contrast. The normalisation remains a heuristic; confirm strongly coloured marks in context.
 
 ## Files
 

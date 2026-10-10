@@ -9,3 +9,9 @@ node sites/optical-balance/build-docs.mjs --inline                  # the same p
 ```
 
 `sources/` holds the logos and the portrait that the figures measure. They stay out of the skill folder, so the installer does not copy them.
+
+
+After building, run `node sites/optical-balance/colour-test.mjs` for the ten colour-logo snapshots.
+Run `node sites/optical-balance/browser-test.mjs` for the landing page, write-up images, and demo controls.
+The browser uses `OPTICAL_CHROMIUM` when set, or Playwright's installed Chromium.
+The Pages workflow runs both checks.
