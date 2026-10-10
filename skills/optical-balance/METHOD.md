@@ -4,7 +4,7 @@ This file explains the formulas behind `scripts/lib.mjs`. `SKILL.md` defines the
 
 ## One pass over the pixels
 
-The script reads a raster. It rasterizes vector input first, at a 1024px longest edge, so an SVG measures like the bitmap that a browser paints from it. For each pixel with alpha above 0:
+The script reads a raster. It rasterizes vector input first, at a 1024px longest edge, so an SVG measures like the bitmap that a browser paints from it. For each pixel with alpha above the trimming threshold:
 
 ```
 luma         = 0.299 R + 0.587 G + 0.114 B       Rec. 601
@@ -19,7 +19,7 @@ Position and size need different weights:
 - **Position uses contrast squared.** At half contrast, a pixel gets a quarter of the weight. So a faint accent hangs below the strong ink and does not pull it. On a mark with one contrast, the weights are equal, and the result is the alpha centroid.
 - **Size uses linear contrast.** The squared form turns differences in color into differences in size. With it, a coral wordmark would measure a third smaller than a black wordmark of the same shape.
 
-The background threshold of 0.02 lets an opaque export measure like a transparent one. Without it, a white background in the file pulls every centroid toward the box center.
+The background threshold of 0.02 lets background pixels be excluded; translucent edges still change after compositing. Without it, a white background in the file pulls every centroid toward the box center.
 
 ## The visual center
 
@@ -48,7 +48,7 @@ For a triangle, the two errors are almost equal, so the midpoint is the answer. 
 **Fallbacks:**
 
 1. If the faint-ink share is above 1/3, or no pixel has weight, the mass is the alpha centroid.
-2. If no pixel is visible, the visual center is the box center.
+2. If no ink is measurable, measurement fails clearly.
 
 ## The perceived size
 
@@ -56,7 +56,8 @@ For a triangle, the two errors are almost equal, so the midpoint is the answer. 
 visual size      √ Σ s
 perceived size   √( visual size × ink height )
 baseline         min( row height ÷ ink height , max width ÷ ink width )
-correction       ( target size ÷ baseline size ) ^ 0.5
+baseline perceived size = perceived size × baseline
+correction       target perceived size ÷ baseline perceived size  (default)
 ```
 
 `equalize` works in three steps:
@@ -65,7 +66,8 @@ correction       ( target size ÷ baseline size ) ^ 0.5
 2. It picks a target. `fit` is the smallest baseline size, so no element grows past its cell. `median` is the median. A file name makes that element the anchor, for example the keyline square of an icon set.
 3. It scales each element by the correction. Without `--grow`, a correction above 1 stays at 1, and the output marks that row as clamped.
 
-The power 0.5 has an exact meaning. When all elements start at one ink height, the correction makes their perceived sizes equal. Perceived size gives the mass and the extent equal weight, as the visual center does. A power of 1 makes the ink areas equal, and that goes too far, because it ignores the extent.
+The default uses perceived size directly, including unequal width-limited baseline heights.
+The historical power 0.5 has an exact meaning at equal baseline heights. When all elements start at one ink height, the correction makes their perceived sizes equal. Perceived size gives the mass and the extent equal weight, as the visual center does. A power of 1 makes the ink areas equal, and that goes too far, because it ignores the extent.
 
 ## Offsets and the clamp
 
@@ -92,7 +94,23 @@ So the gate is a tolerance (1% or less off center), not zero. A residual below o
 | `ACCENT_CONTRAST` | 0.6 | which ink is faint | the Amazon smile measures 0.35 on white and 0.65 inverted on black, and the threshold is between them |
 | `ACCENT_MAX_SHARE` | 1/3 | when faint ink stops being an accent | the lighter PayPal blue is 41% of its mark and must keep its full weight |
 | `CENTER_BLEND` | 0.5 | where the visual center sits between extent and mass | box centering and mass centering miss a triangle by almost equal amounts in opposite directions |
-| size power | 0.5 | how strongly a set is equalized | it makes perceived sizes equal at one ink height; the icon-set calibration in [EVIDENCE.md](EVIDENCE.md) confirms it |
+| size power | 0.5 | how strongly a set is equalized | it makes perceived sizes equal at one ink height; the icon-set calibration in [EVIDENCE.md](EVIDENCE.md) checks the equation, not human preference |
 | `DEFAULT_RASTER_EDGE` | 1024px | the raster size of vector input | a fixed size, so that one SVG always gives one result; no experiment set this value |
 
 The Amazon and PayPal values come from the skill's write-up, which its build measures again from the source artwork. See [EVIDENCE.md](EVIDENCE.md) for the commands.
+
+## Output contracts
+
+`visualSize` and `sizes.contrast` both mean linear-contrast visual size.
+`massArea` and `sizes.mass` use squared contrast for diagnostic comparisons.
+No successful measurement contains a non-finite number. Blank input fails.
+Circle placement is measured after masking. Strip gates read pixels from the flattened output.
+`--max-width` applies during initial sizing and refinement, including with `--grow`.
+A clamped median or named target can fail; report incompatible constraints instead of claiming equalization.
+The sharp edge at one-third is retained and tested numerically. Smooth weighting remains an experiment.
+
+Reproduce constants and contracts with `cd scripts && npm test`.
+This is an implementation check, not independent perceptual validation.
+
+Measurement and cropping exclude alpha at or below 10/255 to reject invisible resampling noise.
+Reproduce the faint-input regression with `cd scripts && node --test v2-test.mjs`.

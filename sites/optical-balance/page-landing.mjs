@@ -91,7 +91,7 @@ ${MOTION_CSS}
 
 <main>
 <h1>Center by what the eye sees</h1>
-<p class="lede">A layout centers the bounding box, but the eye does not. Optical balance is an agent skill, for Claude Code, Codex, Cursor, or any agent that reads skills. It measures where a logo or icon looks centered and how large it looks. It gives you the CSS offset and checks the result.</p>
+<p class="lede">A layout centers the bounding box, but the eye does not. Optical balance is an agent skill, for Claude Code, Codex, Cursor, or any agent that reads skills. It estimates centering and sizing with a reproducible heuristic; measured gates do not prove human preference. It gives you the CSS offset and checks the result.</p>
 <figure class="hero">${motionFigure(F.introMotion)}</figure>
 <p class="small">Each shape moves from its box center to its measured visual center.</p>
 <div class="links"><a href="#install">Install the skill</a><a href="demo.html">Try the demo</a></div>

@@ -1,0 +1,51 @@
+{
+  "command": "cd scripts && npm run validate",
+  "model": "same-model implementation check; circular for perception",
+  "results": [
+    {
+      "file": "bell-fill.svg",
+      "sha256": "e4693a0a6ca205edfb7702c90ba2db37d9ad33e06abc9aa4603d476e80b3edce",
+      "beforePct": 0.0067243070211490015,
+      "afterPct": 0.0067243070211490015,
+      "offset": {
+        "x": 0.0002058938873972238,
+        "y": 0.011291588082447863,
+        "px": {
+          "x": 0.00012353633243833428,
+          "y": 0.006774952849468718
+        }
+      },
+      "pass": true
+    },
+    {
+      "file": "heart-fill.svg",
+      "sha256": "2903966b0b1a314d61485658ec700fea9ac4b996621fbbc08117da1f35896b69",
+      "beforePct": 4.146414099069342,
+      "afterPct": 0.02025414680286664,
+      "offset": {
+        "x": 0.0007513297426579395,
+        "y": 6.602362315559026,
+        "px": {
+          "x": 0.00045079784559476366,
+          "y": 3.9614173893354163
+        }
+      },
+      "pass": true
+    },
+    {
+      "file": "hexagon-fill.svg",
+      "sha256": "e76f2a47ea5e9cabce897f3c3427a85f38b183575289ea074e4695482e946f54",
+      "beforePct": 0.00031889184088704133,
+      "afterPct": 0.00031889184088704133,
+      "offset": {
+        "x": -0.0009835830975113424,
+        "y": 0.000091283847384697,
+        "px": {
+          "x": -0.0005901498585068055,
+          "y": 0.000054770308430818204
+        }
+      },
+      "pass": true
+    }
+  ]
+}

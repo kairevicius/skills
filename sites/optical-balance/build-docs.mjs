@@ -730,8 +730,8 @@ ${dot(ext)}${dot(mass)}${dot(vis, true)}</svg>`;
         { label: "alpha area, power 0.5", metric: "alpha", strength: 0.5 },
         { label: "linear-contrast area, power 1", metric: "contrast", strength: 1 },
         { label: "linear-contrast area, power 0.5 (default)", metric: "contrast", strength: 0.5 },
-        { label: "squared-contrast area, power 1", metric: "visual", strength: 1 },
-        { label: "squared-contrast area, power 0.5", metric: "visual", strength: 0.5 },
+        { label: "squared-contrast area, power 1", metric: "mass", strength: 1 },
+        { label: "squared-contrast area, power 0.5", metric: "mass", strength: 0.5 },
     ];
     const parts = [];
     let y = 0, maxW = 0;

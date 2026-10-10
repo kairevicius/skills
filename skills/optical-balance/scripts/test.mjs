@@ -68,8 +68,7 @@ test("an opaque export measures like the transparent artwork", async () => {
 
 test("a white icon on the default white background warns instead of passing silently", async () => {
     const white = file("white.svg", svg(`<path d="M30 20 L100 60 L30 100 Z" fill="#fff"/>`));
-    const m = await measureFile(white);
-    assert.ok(m.warnings.some((w) => w.startsWith("No ink differs")), m.warnings.join(" | "));
+    await assert.rejects(measureFile(white), /no ink/);
     const dark = await measureFile(white, { bg: "#111111" });
     assert.equal(dark.warnings.length, 0);
     const black = await measureFile(file("black.svg", svg(`<path d="M30 20 L100 60 L30 100 Z" fill="#000"/>`)), { bg: "255" });
@@ -119,7 +118,7 @@ test("a logo strip equalizes perceived size within the gate", async () => {
         file("ring.svg", svg(`<circle cx="60" cy="60" r="52" fill="none" stroke="#111" stroke-width="8"/>`)),
         file("word.svg", svg(`<rect x="0" y="30" width="60" height="60" fill="#2b5cff"/><rect x="80" y="30" width="60" height="60" fill="#2b5cff"/><rect x="160" y="30" width="60" height="60" fill="#2b5cff"/>`, 220, 120)),
     ];
-    const s = await renderStrip(logos, { height: 40 });
+    const s = await renderStrip(logos, { height: 40, scale: 2 });
     assert.ok(s.verify.spread <= GATES.sizeSpreadPct, `size spread ${s.verify.spread}`);
     const before = await renderStrip(logos, { height: 40, sizing: "height" });
     assert.ok(before.verify.spread > 20, `equal height should be uneven: ${before.verify.spread}`);
@@ -137,7 +136,7 @@ test("the documented icon calibration still holds", async () => {
 test("the CLI exits 1 on a failed check and 0 on a pass", async () => {
     const pass = join(TMP, "tile-visual.png"), failing = join(TMP, "tile-box.png");
     assert.equal(cli("tile", TWO_TONE, "--out", pass).status, 0);
-    assert.equal(cli("tile", TWO_TONE, "--out", failing, "--centering", "box").status, 0);
+    assert.equal(cli("tile", TWO_TONE, "--out", failing, "--centering", "box").status, 1);
     assert.equal(cli("check", pass, "--bg", "255").status, 0);
     const r = cli("check", failing, "--bg", "255");
     assert.equal(r.status, 1);
@@ -160,17 +159,17 @@ async function paddedLogo(name, body, size = 48) {
     return p;
 }
 
-test("strip reports the size spread of the files as they ship", async () => {
+test("strip reports the size spread of its final composited pixels", async () => {
     const logos = [
         await paddedLogo("wide.png", `<rect x="4" y="18" width="40" height="12" fill="#2b5cff"/>`),
         await paddedLogo("tall.png", `<rect x="18" y="6" width="12" height="36" fill="#111"/>`),
         await paddedLogo("dot.png", `<circle cx="24" cy="24" r="14" fill="#e33"/>`),
     ];
     const s = await renderStrip(logos, { height: 32, scale: 2 });
-    // Resize each whole file to the height the strip prints, as a page would, and measure the set.
     const sizes = [];
     for (const r of s.rows) {
-        const png = await sharp(r.file).resize(Math.round(r.css.file.width * 2), Math.round(r.css.file.height * 2), { fit: "fill", kernel: "lanczos3" }).png().toBuffer();
+        const p = r.placed;
+        const png = await sharp(s.png).extract({ left: p.left, top: p.top, width: p.width, height: p.height }).png().toBuffer();
         sizes.push(measure(await toRaw(png), 255).perceivedSize / 2);
     }
     const independent = (Math.max(...sizes) - Math.min(...sizes)) / Math.min(...sizes) * 100;

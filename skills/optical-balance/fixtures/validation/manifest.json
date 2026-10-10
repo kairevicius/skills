@@ -1,0 +1,20 @@
+{
+  "description": "Replacement held-out implementation-validation set: bell, heart, and hexagon were outside the logo tuning and four-shape size calibration. Not the missing original corpus; no human preference claims.",
+  "original": {
+    "status": "unavailable",
+    "manifest": null,
+    "licenses": "not archived",
+    "recordedOutputs": "not archived"
+  },
+  "license": "MIT; ../icons/LICENSE",
+  "background": "#ffffff",
+  "foreground": "#111111",
+  "container": 96,
+  "element": 60,
+  "scale": 4,
+  "files": [
+    "bell-fill.svg",
+    "heart-fill.svg",
+    "hexagon-fill.svg"
+  ]
+}

@@ -6,6 +6,9 @@
  * artwork measures exactly like the PNG a browser would paint from it.
  */
 import sharp from "sharp";
+import { readFile } from "node:fs/promises";
+
+const positive = (n, name) => { if (!Number.isFinite(n) || n <= 0) throw new Error(`${name} must be positive and finite`); };
 
 /** Rec.601 luma of an sRGB pixel, 0..255. */
 export const luminance = (r, g, b) => 0.299 * r + 0.587 * g + 0.114 * b;
@@ -65,7 +68,8 @@ export function parseColor(input) {
     const s = String(input).trim().toLowerCase();
     if (s in NAMED && NAMED[s]) return parseColor(NAMED[s]);
     if (/^\d+(\.\d+)?$/.test(s)) {
-        const v = Math.max(0, Math.min(255, Number(s)));
+        const v = Number(s);
+        if (!Number.isFinite(v) || v > 255) throw new Error("luminance must be 0..255");
         return { r: v, g: v, b: v, lum: v };
     }
     const hex = s.replace(/^#/, "");
@@ -92,7 +96,13 @@ export async function toRaw(png) {
  * background is kept whole, and padding that matches the background is removed.
  * `full` is the size before the crop, so a caller can scale the file as placed.
  */
-export async function loadRaster(file, { maxEdge = DEFAULT_RASTER_EDGE, trim = false, bg = "255" } = {}) {
+export async function loadRaster(file, { maxEdge = DEFAULT_RASTER_EDGE, trim = false, bg = "255", fg } = {}) {
+    positive(maxEdge, "maxEdge");
+    if (fg !== undefined) {
+        const color = toHex(parseColor(fg));
+        const bytes = await readFile(file);
+        if (bytes.toString().includes("<svg")) file = Buffer.from(bytes.toString().replace(/currentColor/gi, color));
+    }
     const meta = await sharp(file, { failOn: "none" }).metadata();
     const pipeline = meta.format === "svg"
         ? sharp(file, { failOn: "none", density: (72 * maxEdge) / Math.max(meta.width || 1, meta.height || 1) })
@@ -246,9 +256,8 @@ export async function rasterizeSvg(svg, { scale = 1 } = {}) {
  *
  * The accent discount is kept only while faint ink is a minority
  * (ACCENT_MAX_SHARE); otherwise the alpha centroid is the mass. Pixels within
- * BACKGROUND_CONTRAST of the background are not ink, so an opaque export
- * measures like a transparent one. With no visible ink at all the box center
- * is kept.
+ * BACKGROUND_CONTRAST of the background are not ink. Compositing translucent
+ * edges changes their position weights. With no measurable ink, measurement fails.
  *
  * The visual center is the extent center moved `blend` (CENTER_BLEND) of the
  * way toward the mass. The extent is the bounding box of the ink the eye
@@ -267,6 +276,11 @@ export async function rasterizeSvg(svg, { scale = 1 } = {}) {
  */
 export function measure(raw, bgLum, { blend = CENTER_BLEND, forceDiscount = false, backgroundContrast = BACKGROUND_CONTRAST } = {}) {
     const { data, width, height } = raw;
+    positive(width, "width"); positive(height, "height");
+    if (!Number.isInteger(width) || !Number.isInteger(height)) throw new Error("raster dimensions must be integers");
+    if (data.length !== width * height * 4) throw new Error("invalid RGBA buffer");
+    if (!Number.isFinite(bgLum) || bgLum < 0 || bgLum > 255) throw new Error("invalid background luminance");
+    if (!Number.isFinite(blend) || blend < 0 || blend > 1 || !Number.isFinite(backgroundContrast) || backgroundContrast < 0 || backgroundContrast >= 1) throw new Error("invalid measurement options");
     let w = 0, wx = 0, wy = 0;
     let aw = 0, ax = 0, ay = 0;
     let cw = 0;
@@ -277,7 +291,7 @@ export function measure(raw, bgLum, { blend = CENTER_BLEND, forceDiscount = fals
         for (let x = 0; x < width; x++) {
             const i = (y * width + x) * 4;
             const a = data[i + 3];
-            if (a === 0) continue;
+            if (a <= TRIM_THRESHOLD) continue;
             const contrast = Math.abs(luminance(data[i], data[i + 1], data[i + 2]) - bgLum) / 255;
             if (contrast <= backgroundContrast) continue;
             const alpha = a / 255;
@@ -299,6 +313,7 @@ export function measure(raw, bgLum, { blend = CENTER_BLEND, forceDiscount = fals
             if (y > bottom) bottom = y;
         }
     }
+    if (aw <= 0) throw new Error("no ink against this background");
     const box = { x: width / 2, y: height / 2 };
     const alphaCentroid = aw > 0 ? { x: ax / aw + 0.5, y: ay / aw + 0.5 } : { ...box };
     const massCentroid = w > 0 ? { x: wx / w + 0.5, y: wy / w + 0.5 } : { ...alphaCentroid };
@@ -331,10 +346,10 @@ export function measure(raw, bgLum, { blend = CENTER_BLEND, forceDiscount = fals
         accentShare,
         discounted,
         alphaArea: aw,
-        visualArea: w,
+        massArea: w,
         contrastArea: cw,
-        visualSize: Math.sqrt(w),
-        sizes: { alpha: Math.sqrt(aw), contrast: Math.sqrt(cw), visual: Math.sqrt(w) },
+        visualSize: Math.sqrt(cw),
+        sizes: { alpha: Math.sqrt(aw), contrast: Math.sqrt(cw), mass: Math.sqrt(w) },
         perceivedSize: Math.sqrt(Math.sqrt(cw) * inkBox.height),
         inkBox,
         offset: { x: box.x - visual.x, y: box.y - visual.y },
@@ -347,8 +362,8 @@ export function measure(raw, bgLum, { blend = CENTER_BLEND, forceDiscount = fals
  * `warnings` for inputs that would otherwise give a quiet wrong answer, and
  * `full`, the file's size before any crop, so a caller can size the file as placed.
  */
-export async function measureFile(file, { bg = "255", trim = false, maxEdge, blend, tolerance } = {}) {
-    const loaded = await loadRaster(file, { maxEdge });
+export async function measureFile(file, { bg = "255", trim = false, maxEdge, blend, tolerance, fg } = {}) {
+    const loaded = await loadRaster(file, { maxEdge, fg });
     const { color, notes } = resolveBackground(bg, loaded.raw);
     const { png, raw } = trim ? await cropToInk(loaded.png, loaded.raw, color.lum, tolerance) : loaded;
     const m = measure(raw, color.lum, { blend, backgroundContrast: tolerance });
@@ -365,7 +380,12 @@ export function offCenter(m) {
 export const GATES = { offCenterPct: 1, sizeSpreadPct: 3 };
 
 /** (largest − smallest) ÷ smallest, as a percentage. */
-export const sizeSpread = (sizes) => ((Math.max(...sizes) - Math.min(...sizes)) / Math.min(...sizes)) * 100;
+export const sizeSpread = (sizes) => {
+    if (!sizes.length || sizes.some((n) => !Number.isFinite(n) || n <= 0)) throw new Error("sizes must be positive and finite");
+    const spread = ((Math.max(...sizes) - Math.min(...sizes)) / Math.min(...sizes)) * 100;
+    if (!Number.isFinite(spread)) throw new Error("non-finite size spread");
+    return spread;
+};
 
 /**
  * Render an element the way CSS places it: the file's own box centered in a
@@ -376,25 +396,22 @@ export const sizeSpread = (sizes) => ((Math.max(...sizes) - Math.min(...sizes)) 
  *
  * Rendering happens at `scale` device pixels per CSS pixel, so the check is not
  * limited by whole-pixel rounding at 1x. The plate fills the whole square for the
- * measurement; a round container is masked only in the returned picture, because
- * its inside is the same color and the circle is symmetric.
+ * measurement; a round container is masked before measurement and residual correction.
  */
 export async function renderPlacement(file, {
-    container = 96, element, plate = "#ffffff", shape = "rect", offset = "auto", scale = 4, passes = 6, blend,
+    container = 96, element, plate = "#ffffff", shape = "rect", offset = "auto", scale = 4, passes = 6, blend, fg,
 } = {}) {
     const color = parseColor(plate);
     const [cw, ch] = typeof container === "number" ? [container, container] : container;
     const W = Math.round(cw * scale), H = Math.round(ch * scale);
-    const meta = await sharp(file, { failOn: "none" }).metadata();
-    const aspect = (meta.width || 1) / (meta.height || 1);
-    const [ew, eh] = typeof element === "number"
-        ? (aspect >= 1 ? [element, element / aspect] : [element * aspect, element])
-        : element ?? [meta.width, meta.height];
-    const pw = Math.max(1, Math.round(ew * scale)), ph = Math.max(1, Math.round(eh * scale));
-    const source = meta.format === "svg"
-        ? sharp(file, { failOn: "none", density: (72 * Math.max(pw, ph)) / Math.max(meta.width || 1, meta.height || 1) })
-        : sharp(file, { failOn: "none" });
-    const art = await source.resize(pw, ph, { fit: "fill", kernel: "lanczos3" }).ensureAlpha().png().toBuffer();
+    const loaded = await loadRaster(file, { fg });
+    const meta = { ...loaded.full, format: loaded.format };
+    const [ew, eh] = typeof element === "number" ? [element, element * meta.height / meta.width] : element;
+    [cw, ch, ew, eh, scale].forEach((n) => positive(n, "placement dimension"));
+    if (!["rect", "circle"].includes(shape)) throw new Error("unknown shape");
+    const pw = Math.round(ew * scale), ph = Math.round(eh * scale);
+    if (pw > W || ph > H) throw new Error("element exceeds container");
+    const art = await sharp(loaded.png).resize(pw, ph, { fit: "fill", kernel: "lanczos3" }).ensureAlpha().png().toBuffer();
     const artRaw = await toRaw(art);
     const warnings = inputWarnings(artRaw, color);
     // An opaque file always looks centered as a whole, so the gate on the container says
@@ -408,9 +425,16 @@ export async function renderPlacement(file, {
     }
     const enlarged = ew / (meta.width || ew);
     if (meta.format !== "svg" && enlarged > 1.05) warnings.push(`The raster source is enlarged ${enlarged.toFixed(1)}x at 1x (from ${meta.width}px), so its edges blur and the offset is less exact. Use an SVG or a larger PNG.`);
-    const bake = async (dx, dy) => sharp({ create: { width: W, height: H, channels: 4, background: toHex(color) } })
-        .composite([{ input: art, left: Math.round((W - pw) / 2 + dx), top: Math.round((H - ph) / 2 + dy) }])
-        .flatten({ background: toHex(color) }).png().toBuffer();
+    const mask = shape === "circle" ? Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}"><ellipse cx="${W/2}" cy="${H/2}" rx="${W/2}" ry="${H/2}" fill="#fff"/></svg>`) : null;
+    const clampX = (v) => Math.min(Math.max(v, -(W-pw)/2), (W-pw)/2);
+    const clampY = (v) => Math.min(Math.max(v, -(H-ph)/2), (H-ph)/2);
+    const bake = async (dx, dy) => {
+        let png = await sharp({ create: { width: W, height: H, channels: 4, background: toHex(color) } })
+            .composite([{ input: art, left: Math.round((W-pw)/2+clampX(dx)), top: Math.round((H-ph)/2+clampY(dy)) }])
+            .flatten({ background: toHex(color) }).png().toBuffer();
+        if (mask) png = await sharp(png).composite([{ input: mask, blend: "dest-in" }]).png().toBuffer();
+        return png;
+    };
     const score = async (png) => {
         const m = measure(await toRaw(png), color.lum, { blend });
         const px = Math.hypot(m.visual.x - m.box.x, m.visual.y - m.box.y);
@@ -421,24 +445,20 @@ export async function renderPlacement(file, {
     let dx, dy;
     if (offset === "auto") {
         const m = measure(await toRaw(art), color.lum, { blend });
-        dx = m.offset.x; dy = m.offset.y;
+        dx = clampX(m.offset.x); dy = clampY(m.offset.y);
         for (let i = 0; i < passes; i++) {
             const r = (await score(await bake(dx, dy))).m;
-            const nx = dx - (r.visual.x - r.box.x), ny = dy - (r.visual.y - r.box.y);
+            const nx = clampX(dx - (r.visual.x - r.box.x)), ny = clampY(dy - (r.visual.y - r.box.y));
             if (Math.abs(nx - dx) < 0.25 && Math.abs(ny - dy) < 0.25) { dx = nx; dy = ny; break; }
             dx = nx; dy = ny;
         }
     } else {
-        dx = (offset.x / 100) * pw; dy = (offset.y / 100) * ph;
+        dx = clampX((offset.x / 100) * pw); dy = clampY((offset.y / 100) * ph);
     }
     const after = await bake(dx, dy);
-    const mask = shape === "circle"
-        ? Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}"><ellipse cx="${W / 2}" cy="${H / 2}" rx="${W / 2}" ry="${H / 2}" fill="#fff"/></svg>`)
-        : null;
-    const shown = async (png) => (mask ? sharp(png).composite([{ input: mask, blend: "dest-in" }]).png().toBuffer() : png);
     return {
-        before: { png: await shown(before), ...(await score(before)) },
-        after: { png: await shown(after), ...(await score(after)) },
+        before: { png: before, ...(await score(before)) },
+        after: { png: after, ...(await score(after)) },
         offset: { x: (dx / pw) * 100, y: (dy / ph) * 100, px: { x: dx / scale, y: dy / scale } },
         element: { width: ew, height: eh }, container: { width: cw, height: ch }, scale, plate: color, warnings, inside,
     };
@@ -461,7 +481,9 @@ export async function renderFrame(file, { size = 256, bg = "0", tolerance = 0.15
     const { png, raw } = await loadRaster(file, { maxEdge: 2048 });
     const options = { backgroundContrast: tolerance, forceDiscount: true };
     const source = measure(raw, color.lum, options);
-    const side = Math.round(Math.min(raw.width, raw.height) * Math.min(Math.max(zoom, 0.1), 1));
+    positive(size, "size"); positive(zoom, "zoom");
+    if (zoom > 1 || !["visual", "box"].includes(centering)) throw new Error("invalid framing options");
+    const side = Math.max(1, Math.round(Math.min(raw.width, raw.height) * zoom));
     const clampX = (v) => Math.round(Math.min(Math.max(v, 0), raw.width - side));
     const clampY = (v) => Math.round(Math.min(Math.max(v, 0), raw.height - side));
     const mask = Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}"><circle cx="${size / 2}" cy="${size / 2}" r="${size / 2}" fill="#fff"/></svg>`);
@@ -510,7 +532,7 @@ const median = (xs) => {
  * compared with the target (`fit`: the smallest baseline size, so nothing has
  * to grow past its cell; `median`: the middle one, growth clamped at the
  * cell; a file name: that element's size, so an icon set can anchor on its
- * keyline square). The correction is (target / size) ^ strength: 1 equalizes
+ * keyline square). The default compares baseline perceived sizes directly. Strength 1 equalizes
  * the ink measure exactly, 0 leaves equal heights. The default 0.5 equalizes
  * the geometric mean of ink size and height, because the eye reads extent as
  * well as mass: pure ink equalization shrinks a wide wordmark until it reads
@@ -520,30 +542,37 @@ const median = (xs) => {
  * `grow` lets an element exceed its cell to match; otherwise it is clamped.
  */
 export function equalize(items, { height = 40, maxWidth = Infinity, strength = 0.5, target = "fit", metric = "contrast", grow = false } = {}) {
+    positive(height, "height");
+    if (maxWidth !== Infinity) positive(maxWidth, "maxWidth");
+    if (!items.length || !["alpha", "contrast", "mass"].includes(metric) || !Number.isFinite(strength) || strength < 0 || strength > 1) throw new Error("invalid equalization options");
     const rows = items.map((m) => {
+        positive(m.inkBox.width, "ink width"); positive(m.inkBox.height, "ink height");
         const baseline = Math.min(height / m.inkBox.height, maxWidth / m.inkBox.width);
         const size = m.sizes?.[metric] ?? m.visualSize;
-        return { ...m, baseline, baselineSize: size * baseline };
+        positive(size, "visual size");
+        return { ...m, baseline, baselineSize: size * baseline, baselineObjective: (strength === 0.5 ? Math.sqrt(size * m.inkBox.height) : size) * baseline };
     });
-    const sizes = rows.map((r) => r.baselineSize);
+    const sizes = rows.map((r) => r.baselineObjective);
     let goal;
     if (target === "fit") goal = Math.min(...sizes);
     else if (target === "median") goal = median(sizes);
     else {
         const anchor = rows.find((r) => r.file === target || (r.file && r.file.endsWith("/" + target)) || r.name === target);
         if (!anchor) throw new Error(`equalize: no element named "${target}" to anchor on`);
-        goal = anchor.baselineSize;
+        goal = anchor.baselineObjective;
     }
     return rows.map((r) => {
-        let correction = Math.pow(goal / r.baselineSize, strength);
+        let correction = Math.pow(goal / r.baselineObjective, strength === 0.5 ? 1 : strength);
         let clamped = false;
-        if (correction > 1 && !grow) { correction = 1; clamped = true; }
+        const limit = Math.min(grow ? Infinity : 1, maxWidth / (r.inkBox.width * r.baseline));
+        if (correction > limit) { correction = limit; clamped = true; }
         const scale = r.baseline * correction;
         return {
             ...r,
             target: goal,
             correction,
             clamped,
+            constraints: clamped ? "incompatible constraints: target requires growth beyond the height or width limit" : null,
             // The max width, not the row height, set this element's baseline.
             widthLimited: maxWidth / r.inkBox.width < height / r.inkBox.height,
             scale,
@@ -562,11 +591,13 @@ const TRANSPARENT = { r: 0, g: 0, b: 0, alpha: 0 };
  * the slack inside the art box and no more, so a skewed mass never pushes the
  * artwork flush to the tile edge.
  */
-export async function renderTile(file, { size = 256, art = 0.76, plate = "#ffffff", centering = "visual", blend, passes = 4 } = {}) {
+export async function renderTile(file, { size = 256, art = 0.76, plate = "#ffffff", centering = "visual", blend, fg, passes = 4 } = {}) {
     const color = parseColor(plate);
-    const { png, full, format } = await loadRaster(file, { trim: true, bg: plate });
+    const { png, full, format } = await loadRaster(file, { trim: true, bg: plate, fg });
     const warnings = inputWarnings(full.raw, color);
-    const artBox = Math.round(size * art);
+    positive(size, "size"); positive(art, "art");
+    if (art > 1 || !["visual", "box", "mass", "alpha", "forced"].includes(centering)) throw new Error("invalid tile options");
+    const artBox = Math.max(1, Math.round(size * art));
     const artwork = await sharp(png).resize(artBox, artBox, { fit: "inside", background: TRANSPARENT }).png().toBuffer();
     const raw = await toRaw(artwork);
     const trimmed = await sharp(png).metadata();
@@ -635,14 +666,17 @@ export async function renderTile(file, { size = 256, art = 0.76, plate = "#fffff
 export async function renderStrip(files, {
     height = 40, gap = 48, padding = 32, paddingY = padding, rowGap = paddingY * 2, bg = "#ffffff", strength = 0.5, maxWidth = Infinity,
     sizing = "visual", centering = "visual", target = "fit", metric = "contrast", grow = false,
-    columns = Infinity, canvasWidth, scale = 1,
+    columns = Infinity, canvasWidth, scale = 1, fg,
 } = {}) {
     const color = parseColor(bg);
+    positive(scale, "scale");
+    if (!["visual", "height"].includes(sizing) || !["visual", "box"].includes(centering)) throw new Error("invalid strip options");
+    for (const n of [gap, padding, paddingY, rowGap]) if (!Number.isFinite(n) || n < 0) throw new Error("strip spacing must be nonnegative and finite");
     const css = { height, gap, padding, paddingY, rowGap };
     [height, gap, padding, paddingY, rowGap, maxWidth] = [height, gap, padding, paddingY, rowGap, maxWidth].map((v) => v * scale);
     if (canvasWidth) canvasWidth *= scale;
     const loaded = await Promise.all(files.map(async (file) => {
-        const { raw, full, format } = await loadRaster(file, { trim: true, bg });
+        const { raw, full, format } = await loadRaster(file, { trim: true, bg, fg });
         return { file, format, fullPng: full.png, full: { width: full.width, height: full.height }, ...measure(raw, color.lum), warnings: inputWarnings(full.raw, color) };
     }));
     const rows = equalize(loaded, { height, maxWidth, strength: sizing === "visual" ? strength : 0, target, metric, grow });
@@ -652,14 +686,22 @@ export async function renderStrip(files, {
     const render = async (r, k) => {
         const W = Math.max(1, Math.round(r.full.width * k)), H = Math.max(1, Math.round(r.full.height * k));
         const filePng = await sharp(r.fullPng).resize(W, H, { fit: "fill", kernel: "lanczos3" }).png().toBuffer();
-        const fileRaw = await toRaw(filePng);
+        const flattened = await sharp(filePng).flatten({ background: toHex(color) }).png().toBuffer();
+        const fileRaw = await toRaw(flattened);
         const m = measure(fileRaw, color.lum);
-        const ink = await cropToInk(filePng, fileRaw, color.lum);
+        const ink = await cropToInk(flattened, fileRaw, color.lum);
         const cut = ink.crop ?? { left: 0, top: 0, width: W, height: H };
         return { r, k, W, H, m, png: ink.png, cut, w: cut.width, h: cut.height };
     };
     const scaled = [];
-    for (const r of rows) scaled.push(await render(r, r.scale));
+    for (const r of rows) {
+        let s = await render(r, r.scale);
+        while (s.m.inkBox.width > maxWidth || (!grow && s.m.inkBox.height > height)) {
+            const k = s.k * Math.min(maxWidth / s.m.inkBox.width, grow ? 1 : height / s.m.inkBox.height) * 0.99;
+            s = await render(r, k);
+        }
+        scaled.push(s);
+    }
 
     // Correct the size residual the way placement corrects its position. Resampling moves
     // an ink box by a pixel, which is several percent of a 24px logo, so measure each file
@@ -677,7 +719,7 @@ export async function renderStrip(files, {
                     if (Math.abs(ratio - 1) < 0.004) continue;
                     const next = await render(s.r, s.k * ratio);
                     if (next.W === s.W && next.H === s.H) continue;
-                    if (!grow && next.m.inkBox.height > height + 0.5) continue;
+                    if ((!grow && next.m.inkBox.height > height + 0.5) || next.m.inkBox.width > maxWidth) continue;
                     scaled[i] = next; moved = true;
                 }
                 if (!moved) break;
@@ -722,7 +764,8 @@ export async function renderStrip(files, {
         const r = s.r;
         r.render = { png: s.png, width: s.w, height: s.h };
         r.scale = s.k;
-        r.perceived = s.m.perceivedSize / scale;
+        const final = await sharp(png).extract({ left: r.placed.left, top: r.placed.top, width: s.w, height: s.h }).png().toBuffer();
+        r.perceived = measure(await toRaw(final), color.lum).perceivedSize / scale;
         r.css = {
             // The whole file as the page sets it, the ink inside it, and the optical move of the file box.
             file: { width: s.W / scale, height: s.H / scale },
@@ -737,7 +780,7 @@ export async function renderStrip(files, {
     const perceived = scaled.map((s) => s.r.perceived);
     return {
         png, rows, width, height: totalHeight, rowHeight: height + rowGap, baselines, bg: color, scale, css,
-        verify: { perceived, spread: sizeSpread(perceived) },
+        verify: { perceived, spread: sizeSpread(perceived), reason: sizeSpread(perceived) > GATES.sizeSpreadPct ? "incompatible constraints or device-pixel rounding; increase resolution or relax limits" : null },
     };
 }
 
