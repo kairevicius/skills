@@ -1,58 +1,87 @@
-<a href="https://kairevicius.github.io/skills/optical-balance/">
-<img width="580" alt="The Amazon wordmark and a play icon, centered by their boxes on the left and optically on the right" src="media/optical-balance.png" />
-</a>
-
 # Skills
 
-Skills for designers and engineers who want an agent to measure, not guess.
+Agent skills that turn design decisions and git history into results you can check.
 
-A design call like "the logo sits a bit high" usually ends in a nudge by eye. Nobody can repeat that nudge, and the next asset needs it again. These skills turn that kind of judgment into a measurement: the agent measures, puts the value where the rule lives, and checks the result it renders.
+[Browse the site](https://kairevicius.github.io/skills/) · [Optical balance write-up](https://kairevicius.github.io/skills/optical-balance/write-up.html) · [Live demo](https://kairevicius.github.io/skills/optical-balance/demo.html)
+
+## What they do
+
+- **Optical balance** estimates the visual center and perceived size of logos and icons, gives you a CSS offset, and checks the rendered result. Its heuristic does not prove human preference.
+- **Proof** turns one person's git history into evidence-backed claims and reports. A recipient can re-derive a received proof from the public repository.
+
+They work with any agent that reads skills, including Claude Code, Codex, Cursor, OpenCode, and Gemini CLI.
 
 ## Install
 
-These are agent skills: plain `SKILL.md` folders that any agent which reads skills can use, such as Claude Code, Codex, Cursor, OpenCode, Gemini CLI, and [many more](https://github.com/vercel-labs/skills#supported-agents).
+Use Node 22.20 or later for the skills CLI.
 
 ```bash
 npx skills@latest add kairevicius/skills
 ```
 
-The CLI asks which skills to install and for which agents. To install one skill, name it:
+The CLI asks which skills and agents to install for. To choose one skill:
 
 ```bash
 npx skills@latest add kairevicius/skills --skill optical-balance
 ```
 
-Add `-a <agent>` to pick agents up front, for example `-a codex -a cursor`, and `-g` to install for your user instead of the current project. Without the CLI, copy a folder from `skills/` into your agent's skills folder.
+Add `-a <agent>` to pick agents, for example `-a codex -a cursor`. Add `-g` for a user install.
+Without the CLI, copy a folder from `skills/` into your agent's skills folder.
 
-A skill that ships a script lists its setup in its `SKILL.md`, and your agent follows it. `optical-balance` needs Node `^18.17.0 || ^20.3.0 || >=21.0.0`. If its one dependency is missing, its script prints the exact `npm ci` command for the folder your agent installed it in. `proof` has no dependencies; it needs git 2.40 or later, Node 18.17 or later, and `ssh-keygen` to sign and verify.
+## Quick start
+
+Ask your agent:
+
+```text
+Use optical-balance to center this logo in its tile and check the result.
+Use proof to turn my work in this repository into evidence. Include the gaps.
+Use proof to verify this candidate's proof.json from the public repository.
+```
+
+For scripts, set `SKILL_ROOT` to the folder containing the installed skill's `SKILL.md`.
+The following optical example runs from a checkout of this repository:
+
+```bash
+export SKILL_ROOT="$PWD/skills/optical-balance"
+(cd "$SKILL_ROOT/scripts" && npm ci)
+node "$SKILL_ROOT/scripts/optical.mjs" place \
+  "$SKILL_ROOT/fixtures/icons/triangle-fill.svg" \
+  --container 96 --element 60 --plate '#111' --fg '#fff' --out pair.png
+```
+
+Optical balance needs Node compatible with sharp; see its [package.json](skills/optical-balance/scripts/package.json).
+Proof needs git 2.40+, Node 18.17+, and OpenSSH 8+ for signing and verification. It has no npm dependencies.
+Set `SKILL_ROOT` to the proof folder, then run extraction from the target repository:
+
+```bash
+node "$SKILL_ROOT/scripts/git-evidence.mjs" --print --author me@example.com
+```
+
+Extraction starts the workflow. Follow the skill to write claims, validate, render, and optionally sign the report.
 
 ## Reference
 
-- **[proof](./skills/proof/SKILL.md)** — Turn one person's work in a git repository into claims backed by commits and files a reader can check, and re-derive a proof someone sent you before you trust it. Built for hiring: the recipient checks everything with their own copy.
-- **[optical-balance](./skills/optical-balance/SKILL.md)** — Center and size logos and icons by what the eye sees, not by the bounding box. It measures the visual center and the perceived size, gives you the CSS offset, and checks the rendered result. [Site](https://kairevicius.github.io/skills/optical-balance/) · [Write-up](https://kairevicius.github.io/skills/optical-balance/write-up.html) · [Demo](https://kairevicius.github.io/skills/optical-balance/demo.html)
-
-## How the skills are built
-
-- **One job each.** A skill says what it does and what it leaves to other tools.
-- **Measured, not asserted.** A number in a skill comes with the command that reproduces it.
-- **Tested cold.** Before a skill ships, an agent that sees only the skill folder gets a realistic request. Every place it guesses becomes a fix in the skill.
+- [optical-balance](./skills/optical-balance/SKILL.md) — measurement workflow, commands, and limits. [Site](https://kairevicius.github.io/skills/optical-balance/).
+- [proof](./skills/proof/SKILL.md) — generation, validation, signing, and independent verification. [Site](https://kairevicius.github.io/skills/proof/).
 
 ## Develop
 
-Read [AGENTS.md](AGENTS.md) before you change the repository. It holds the layout, the checklist for each skill, and the house style.
+Read [AGENTS.md](AGENTS.md). Only `skills/<name>/` installs; websites and larger sources stay under `sites/`.
 
 ```bash
-node scripts/check-repo.mjs                         # structure, frontmatter, Codex metadata, install wording
-cd skills/optical-balance/scripts
-npm ci && npm test                                  # the skill's regression tests
-cd ../../.. && node sites/optical-balance/build-docs.mjs   # its site, in sites/optical-balance/dist
-cd skills/proof/scripts && npm ci && npm test        # proof's tests: fixture repositories, signing, verify
+node scripts/check-repo.mjs
+(cd skills/optical-balance/scripts && npm ci && npm test)
+(cd skills/proof/scripts && npm ci && npm test)
+node sites/optical-balance/build-docs.mjs
+node sites/build-docs.mjs
+node scripts/site-smoke.mjs
 ```
 
-Each skill lives in `skills/<name>/`, which is the folder the installer copies. A skill's website, with its larger sources, lives in `sites/<name>/` and does not install. On every push to `main`, the GitHub Pages workflow runs the tests and publishes the sites. To turn it on, set the Pages source to "GitHub Actions" in the repository settings.
+Smoke checks require Playwright's Chromium, installed with `npx playwright-core install chromium` from `skills/optical-balance/scripts`.
+Set `OPTICAL_CHROMIUM` to use another Chromium executable. Pages runs the checks before publishing pushes to `main`.
 
 ## License
 
-MIT, see [LICENSE](LICENSE).
-
-The brand logos in `sites/optical-balance/sources` are trademarks of their owners and appear only as test material. The icons in `skills/optical-balance/fixtures/icons` come from [Bootstrap Icons](https://icons.getbootstrap.com/) under the MIT license. The portrait is *Girl with a Pearl Earring* by Johannes Vermeer, in the public domain.
+[MIT](LICENSE). Brand logos are their owners' trademarks and appear as test material.
+[Bootstrap Icons](https://icons.getbootstrap.com/) fixtures use the MIT license.
+Vermeer's *Girl with a Pearl Earring* is in the public domain.

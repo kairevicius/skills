@@ -1,0 +1,30 @@
+Site browser acquired shared lock.
+Site browser PASS: index.html
+Site browser PASS: write-up.html
+Site browser PASS: demo.html
+
+> optical-balance@1.0.0 test:browser
+> node --test browser-launch-test.mjs && node browser-test.mjs
+
+TAP version 13
+# Subtest: default resolution reports how to install a missing browser
+ok 1 - default resolution reports how to install a missing browser
+  ---
+  duration_ms: 710.864101
+  ...
+# Subtest: explicit override reports how to install a missing browser
+ok 2 - explicit override reports how to install a missing browser
+  ---
+  duration_ms: 672.430645
+  ...
+1..2
+# tests 2
+# suites 0
+# pass 2
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 1522.96998
+Colour Amazon browser PASS: {"offset":{"x":-1.975578366421685,"y":1.2436662712679134,"px":{"x":-2.2126477703922873,"y":1.392906223820063}},"after":{"px":0.4746295928759131,"pct":0.11865739821897829}}
+Browser PASS: {"css":"translate(-0.03727180311538329%, -6.101901557371375%)","before":{"px":7.387544540729486,"pct":3.8476794482966072},"after":{"px":0.04222492359947057,"pct":0.02199214770805759},"amazonAfter":{"px":0.4746295928759131,"pct":0.11865739821897829},"textAfter":{"px":0.4668310210500953,"pct":0.3890258508750794},"background":"rgb(255, 255, 255)","foreground":"rgb(17, 17, 17)","dpr":2}

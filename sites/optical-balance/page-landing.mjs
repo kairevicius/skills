@@ -1,3 +1,4 @@
+import { sitePage } from '../site.mjs';
 /**
  * The landing page: one screen of claim, proof, and install, built for a phone first.
  * Like the write-up, it states no number that the build did not measure; each value
@@ -5,8 +6,7 @@
  */
 import { installCommand, motionFigure, MOTION_CSS } from "./page-parts.mjs";
 
-export default function renderLanding({ F, N, label, webp, repo, ACCENT, LINK }) {
-    const abs = (v) => Math.abs(Number(v));
+export default function renderLanding({ F, N, label, webp }) {
     const pct1 = (v) => Number(v).toFixed(1);
     const pic = (id, alt) => `<img src="${webp[id]}" width="${F[id].rw}" height="${F[id].rh}" alt="${alt}" loading="lazy" decoding="async">`;
     /** A before-and-after pair: the measured label above each image, one line of measured fact below. */
@@ -19,7 +19,7 @@ export default function renderLanding({ F, N, label, webp, repo, ACCENT, LINK })
 <p class="fact">${fact}</p>
 </section>`;
 
-    return `<!doctype html>
+    return sitePage(`<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -28,39 +28,11 @@ export default function renderLanding({ F, N, label, webp, repo, ACCENT, LINK })
 <meta name="description" content="An agent skill for Claude Code, Codex, Cursor, and other agents that centers and sizes logos and icons by what the eye sees, measures the result, and gives you the CSS offset.">
 <meta property="og:title" content="Optical balance">
 <meta property="og:description" content="Center and size logos and icons by what the eye sees, not by the bounding box.">
-<meta name="theme-color" content="#fbfbfb">
+<meta name="theme-color" content="#fafafa">
 <style>
-:root {
-    --paper: #fbfbfb; --ink: #1a1a1a; --muted: #6b6b6b; --faint: #a3a3a3; --hair: #e4e4e4; --accent: ${ACCENT}; --link: ${LINK};
-    /* Four sizes, two weights. */
-    --size-title: clamp(32px, 8vw, 48px); --size-lede: 20px; --size-body: 17px; --size-small: 13px;
-    --gutter: 16px;
-}
-@media (min-width: 720px) { :root { --gutter: 32px; } }
-* { box-sizing: border-box; }
-html { color-scheme: light; -webkit-text-size-adjust: 100%; }
-body { margin: 0; background: var(--paper); color: var(--ink); font: var(--size-body)/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; -webkit-font-smoothing: antialiased; }
-.wrap { max-width: 960px; margin: 0 auto; padding: 0 max(var(--gutter), env(safe-area-inset-left)) 0 max(var(--gutter), env(safe-area-inset-right)); }
-header.top { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 64px; }
-.brand { display: inline-flex; align-items: center; min-height: 44px; font-weight: 600; color: var(--ink); text-decoration: none; }
-nav { display: flex; gap: 4px; margin-right: -12px; }
-nav a, .links a { display: inline-flex; align-items: center; min-height: 44px; padding: 0 12px; color: var(--link); text-decoration: none; }
-nav a:hover, .links a:hover, a:hover { text-decoration: underline; }
-h1 { font-size: var(--size-title); font-weight: 600; line-height: 1.1; letter-spacing: -0.02em; margin: 40px 0 16px; max-width: 760px; }
-h2 { font-size: var(--size-lede); font-weight: 600; line-height: 1.3; margin: 0 0 12px; }
-h3 { font-size: var(--size-body); font-weight: 600; margin: 0 0 12px; }
-p { margin: 0 0 16px; max-width: 640px; }
-.lede { font-size: var(--size-lede); line-height: 1.5; color: var(--muted); max-width: 680px; }
-.links { display: flex; flex-wrap: wrap; gap: 0 8px; margin: 8px 0 0 -12px; }
-.links a { font-weight: 600; }
-section.block { padding: 64px 0 0; }
-@media (min-width: 720px) { section.block { padding-top: 88px; } }
-figure { margin: 0; min-width: 0; }
 img { display: block; width: 100%; height: auto; }
-.hero { margin: 40px 0 8px; }
-.small { font-size: var(--size-small); color: var(--muted); }
-.examples { display: grid; grid-template-columns: 1fr; gap: 48px; margin-top: 32px; }
-@media (min-width: 720px) { .examples { grid-template-columns: 1fr 1fr; gap: 56px 40px; } }
+.links { display: flex; flex-wrap: wrap; }
+.links a { display: inline-flex; align-items: center; min-height: 44px; }
 .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .pair img { outline: 1px solid var(--hair); }
 .fact { font-size: var(--size-small); color: var(--muted); margin: 10px 0 0; }
@@ -70,24 +42,16 @@ img { display: block; width: 100%; height: auto; }
 .strip img { outline: 1px solid var(--hair); }
 ol.steps { margin: 24px 0 0; padding: 0; list-style: none; counter-reset: step; display: grid; gap: 24px; max-width: 680px; }
 ol.steps li { counter-increment: step; display: grid; grid-template-columns: 32px 1fr; gap: 0 8px; }
-ol.steps li::before { content: counter(step); font-weight: 600; color: var(--accent); }
+ol.steps li::before { content: counter(step); }
 ol.steps strong { font-weight: 600; }
-pre { font: var(--size-small)/1.6 ui-monospace, SFMono-Regular, Menlo, monospace; margin: 16px 0; padding: 16px 0; border-top: 1px solid var(--hair); border-bottom: 1px solid var(--hair); overflow-x: auto; white-space: pre; }
-code { font: 0.9em ui-monospace, SFMono-Regular, Menlo, monospace; }
 ul.asks { margin: 0 0 16px; padding-left: 20px; max-width: 640px; }
 ul.asks li { margin: 6px 0; }
-footer { margin: 88px 0 0; padding: 24px 0 48px; border-top: 1px solid var(--hair); }
-footer p { font-size: var(--size-small); color: var(--muted); max-width: none; }
-a { color: var(--link); }
 ${MOTION_CSS}
 </style>
 </head>
 <body>
 <div class="wrap">
-<header class="top">
-<a class="brand" href="index.html">Optical balance</a>
-<nav aria-label="Pages"><a href="write-up.html">Write-up</a><a href="demo.html">Demo</a>${repo ? `<a href="https://github.com/${repo}">GitHub</a>` : ""}</nav>
-</header>
+
 
 <main>
 <h1>Center by what the eye sees</h1>
@@ -161,5 +125,5 @@ ${pair("An icon beside a label", "button-before", "button-after", `The fix is le
 </div>
 </body>
 </html>
-`;
+`, 'optical-balance');
 }

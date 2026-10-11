@@ -1,0 +1,241 @@
+
+added 9 packages, and audited 10 packages in 884ms
+
+5 packages are looking for funding
+  run `npm fund` for details
+
+1 high severity vulnerability
+
+To address all issues (including breaking changes), run:
+  npm audit fix --force
+
+Run `npm audit` for details.
+
+> optical-balance@1.0.0 test
+> node --test test.mjs v2-test.mjs
+
+TAP version 13
+# Subtest: a symmetric shape needs no offset
+ok 1 - a symmetric shape needs no offset
+  ---
+  duration_ms: 350.801186
+  ...
+# Subtest: a solid triangle moves up by a twelfth of its height
+ok 2 - a solid triangle moves up by a twelfth of its height
+  ---
+  duration_ms: 133.19146
+  ...
+# Subtest: a play triangle moves right by a twelfth of its width
+ok 3 - a play triangle moves right by a twelfth of its width
+  ---
+  duration_ms: 85.101461
+  ...
+# Subtest: the accent discount applies to a minority of faint ink and not to a second tone
+ok 4 - the accent discount applies to a minority of faint ink and not to a second tone
+  ---
+  duration_ms: 409.717213
+  ...
+# Subtest: an opaque export measures like the transparent artwork
+ok 5 - an opaque export measures like the transparent artwork
+  ---
+  duration_ms: 15.3536
+  ...
+# Subtest: a white icon on the default white background warns instead of passing silently
+ok 6 - a white icon on the default white background warns instead of passing silently
+  ---
+  duration_ms: 116.833985
+  ...
+# Subtest: an image with its own background warns, and --bg auto reads that background
+ok 7 - an image with its own background warns, and --bg auto reads that background
+  ---
+  duration_ms: 22.17618
+  ...
+# Subtest: cropping keeps an opaque tile whole and removes background-colored padding
+ok 8 - cropping keeps an opaque tile whole and removes background-colored padding
+  ---
+  duration_ms: 8.840675
+  ...
+# Subtest: place finds an offset that passes the gate, and verifies a given offset
+ok 9 - place finds an offset that passes the gate, and verifies a given offset
+  ---
+  duration_ms: 191.617493
+  ...
+# Subtest: a baked tile passes the gate
+ok 10 - a baked tile passes the gate
+  ---
+  duration_ms: 56.099523
+  ...
+# Subtest: a logo strip equalizes perceived size within the gate
+ok 11 - a logo strip equalizes perceived size within the gate
+  ---
+  duration_ms: 778.608421
+  ...
+# Subtest: the documented icon calibration still holds
+ok 12 - the documented icon calibration still holds
+  ---
+  duration_ms: 270.315261
+  ...
+# Subtest: the CLI exits 1 on a failed check and 0 on a pass
+ok 13 - the CLI exits 1 on a failed check and 0 on a pass
+  ---
+  duration_ms: 993.179815
+  ...
+# Subtest: the CLI reports a missing file and a bad option without a stack trace
+ok 14 - the CLI reports a missing file and a bad option without a stack trace
+  ---
+  duration_ms: 285.453362
+  ...
+# Subtest: strip reports the size spread of its final composited pixels
+ok 15 - strip reports the size spread of its final composited pixels
+  ---
+  duration_ms: 169.990654
+  ...
+# Subtest: place measures the artwork inside a file that has its own backdrop
+ok 16 - place measures the artwork inside a file that has its own backdrop
+  ---
+  duration_ms: 186.31639
+  ...
+# Subtest: a tinted backdrop close to the plate's lightness still warns
+ok 17 - a tinted backdrop close to the plate's lightness still warns
+  ---
+  duration_ms: 5.869982
+  ...
+# Subtest: the CLI accepts a negative offset without '=' and prints its usage with --help
+ok 18 - the CLI accepts a negative offset without '=' and prints its usage with --help
+  ---
+  duration_ms: 407.001028
+  ...
+# Subtest: a solid shape that fills its frame is not mistaken for a backdrop
+ok 19 - a solid shape that fills its frame is not mistaken for a backdrop
+  ---
+  duration_ms: 82.392904
+  ...
+# Subtest: blank inputs and invalid raw sizes fail clearly
+ok 20 - blank inputs and invalid raw sizes fail clearly
+  ---
+  duration_ms: 1587.863615
+  ...
+# Subtest: invalid CLI values, enums, extra positionals, and offset arity are rejected
+ok 21 - invalid CLI values, enums, extra positionals, and offset arity are rejected
+  ---
+  duration_ms: 1841.592895
+  ...
+# Subtest: help is usable in an isolated folder with no sharp
+ok 22 - help is usable in an isolated folder with no sharp
+  ---
+  duration_ms: 99.050266
+  ...
+# Subtest: near one-third two-tone readings assert numerical centroid and extent
+ok 23 - near one-third two-tone readings assert numerical centroid and extent
+  ---
+  duration_ms: 1.305116
+  ...
+# Subtest: linear visual size and alpha compositing have explicit numerical contracts
+ok 24 - linear visual size and alpha compositing have explicit numerical contracts
+  ---
+  duration_ms: 8.875393
+  ...
+# Subtest: circle scores match masked returned pixels and placement clamps
+ok 25 - circle scores match masked returned pixels and placement clamps
+  ---
+  duration_ms: 351.431839
+  ...
+# Subtest: width-limited unequal baselines equalize and refinement respects width
+ok 26 - width-limited unequal baselines equalize and refinement respects width
+  ---
+  duration_ms: 366.072452
+  ...
+# Subtest: photo crop measures final circle and clamps at the source edge
+ok 27 - photo crop measures final circle and clamps at the source edge
+  ---
+  duration_ms: 110.440867
+  ...
+# Subtest: all render commands return nonzero for failed gates
+ok 28 - all render commands return nonzero for failed gates
+  ---
+  duration_ms: 1342.149618
+  ...
+# Subtest: median, named targets, alternate metrics, and growth respect constraints
+ok 29 - median, named targets, alternate metrics, and growth respect constraints
+  ---
+  duration_ms: 343.179624
+  ...
+# Subtest: very faint ink fails below tolerance and warns when measurable
+ok 30 - very faint ink fails below tolerance and warns when measurable
+  ---
+  duration_ms: 475.374561
+  ...
+# Subtest: incompatible width-limited anchor is explicitly reported
+ok 31 - incompatible width-limited anchor is explicitly reported
+  ---
+  duration_ms: 498.799852
+  ...
+# Subtest: tile and frame JSON expose finite readings and failed gate status
+ok 32 - tile and frame JSON expose finite readings and failed gate status
+  ---
+  duration_ms: 822.541123
+  ...
+# Subtest: held-out manifest renders every archived shape with reproducible readings
+ok 33 - held-out manifest renders every archived shape with reproducible readings
+  ---
+  duration_ms: 983.428494
+  ...
+# Subtest: colour Amazon keeps the mono placement direction without a large downward fix
+ok 34 - colour Amazon keeps the mono placement direction without a large downward fix
+  ---
+  duration_ms: 606.517768
+  ...
+# Subtest: saturated orange contributes mass and stays in the strong-ink extent
+ok 35 - saturated orange contributes mass and stays in the strong-ink extent
+  ---
+  duration_ms: 0.7257
+  ...
+# Subtest: all neutral greys retain their original mass and size weights including alpha
+ok 36 - all neutral greys retain their original mass and size weights including alpha
+  ---
+  duration_ms: 21.928089
+  ...
+# Subtest: equal-luminance colour remains ink against a grey background through trim and warnings
+ok 37 - equal-luminance colour remains ink against a grey background through trim and warnings
+  ---
+  duration_ms: 126.547044
+  ...
+# Subtest: every weighting command accepts colour and preserves finite JSON readings
+ok 38 - every weighting command accepts colour and preserves finite JSON readings
+  ---
+  duration_ms: 2276.144316
+  ...
+# Subtest: orange variants on white and cream stay within 3px plus one raster step of mono Amazon
+ok 39 - orange variants on white and cream stay within 3px plus one raster step of mono Amazon
+  ---
+  duration_ms: 1598.304375
+  ...
+# Subtest: frame ignores a near-black tinted backdrop at photo tolerance
+ok 40 - frame ignores a near-black tinted backdrop at photo tolerance
+  ---
+  duration_ms: 123.356373
+  ...
+# Subtest: colour compositing uses the flattened RGB and derives background luma
+ok 41 - colour compositing uses the flattened RGB and derives background luma
+  ---
+  duration_ms: 2.934515
+  ...
+# Subtest: extent varies continuously across the former strong-ink threshold
+ok 42 - extent varies continuously across the former strong-ink threshold
+  ---
+  duration_ms: 0.53492
+  ...
+# Subtest: equal-luma cyan backdrop warns as a tile rather than a faint rectangle
+ok 43 - equal-luma cyan backdrop warns as a tile rather than a faint rectangle
+  ---
+  duration_ms: 139.558624
+  ...
+1..43
+# tests 43
+# suites 0
+# pass 43
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 13960.815091

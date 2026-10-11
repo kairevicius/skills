@@ -1,0 +1,4 @@
+Blast radius PASS: all build-derived measurements match the before build
+Blast radius PASS: 47 generated assets are byte-identical to the baseline
+Blast radius PASS: existing headings, paragraphs, code examples, and lists preserved in index.html
+Blast radius PASS: existing headings, paragraphs, code examples, and lists preserved in write-up.html

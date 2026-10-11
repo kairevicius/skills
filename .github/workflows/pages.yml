@@ -50,11 +50,11 @@ jobs:
       - name: Build the sites
         run: |
           node sites/optical-balance/build-docs.mjs
-          mkdir -p _site
-          cp sites/index.html _site/index.html
-          cp -R sites/optical-balance/dist _site/optical-balance
+          node sites/build-docs.mjs
       - name: Test the optical-balance site in Chromium
         run: node sites/optical-balance/browser-test.mjs
+      - name: Smoke-check every page
+        run: node scripts/site-smoke.mjs
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

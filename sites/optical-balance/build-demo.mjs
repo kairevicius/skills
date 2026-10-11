@@ -1,3 +1,4 @@
+import { demoPage } from '../site.mjs';
 /**
  * Builds dist/demo.html: a design-canvas mock whose align tools work in two modes.
  * Geometric aligns the layer box, the way design tools do today. Optical aligns centers on
@@ -80,9 +81,10 @@ export async function renderDemo() {
 <title>Optical align</title>
 <style>
 :root {
-    --canvas: #f5f5f5; --panel: #ffffff; --ink: #1a1a1a; --muted: #6b6b6b; --faint: #a3a3a3; --hair: #e6e6e6; --field: #f5f5f5;
+    --canvas: #f5f5f5; --panel: #ffffff; --ink: #1a1a1a; --muted: #666; --faint: #737373; --hair: #e6e6e6; --field: #f5f5f5;
     --select: #0d99ff; --geo: #f24e8a; --optical: #06b6d4; --tip: #1e1e1e;
-    --size-title: 15px; --size-body: 13px; --size-small: 11px;
+    --size-title: 15px; --size-body: 13px; --size-small: 12px;
+    color-scheme: light;
 }
 * { box-sizing: border-box; }
 html, body { height: 100%; }
@@ -143,7 +145,12 @@ dd { margin: 0; text-align: right; }
 .tip { position: fixed; z-index: 20; background: var(--tip); color: #fff; font-size: 12px; padding: 6px 10px; border-radius: 6px; pointer-events: none; white-space: nowrap; display: none; }
 .tip .k { color: #a8a8a8; margin-left: 12px; }
 @media (prefers-reduced-motion: reduce) { .layer, .guide { transition: none; } }
-@media (max-width: 760px) { .app { grid-template-columns: 1fr; grid-template-rows: minmax(0, 1fr) auto; } .panel { border-left: 0; border-top: 1px solid var(--hair); max-height: 46vh; } }
+
+.layer-picker { display: grid; gap: 8px; margin-top: 12px; }
+.layer-picker select { width: 100%; min-height: 44px; font: inherit; color: var(--ink); background: var(--field); border: 1px solid var(--hair); border-radius: 8px; padding: 8px; }
+button { min-height: 44px; }
+:focus-visible { outline: 2px solid #525252; outline-offset: 2px; }
+@media (max-width: 760px) { .app { grid-template-columns: 1fr; height: auto; min-height: 100vh; grid-template-rows: 340px auto; } .panel { max-height: none; } body { overflow: auto; } .canvas-hint { max-width: calc(100% - 40px); } }
 </style>
 </head>
 <body>
@@ -154,7 +161,7 @@ dd { margin: 0; text-align: right; }
     <div class="canvas-hint">Click a layer, shift-click to add a sibling, drag to move. ⌥H and ⌥V align centers. Arrows nudge.</div>
   </div>
   <aside class="panel" aria-label="Design panel">
-    <div class="section"><div class="head" id="selTitle">No selection</div><div class="sub" id="selSub">Select a layer on the canvas</div></div>
+    <div class="section"><div class="head" id="selTitle">No selection</div><div class="sub" id="selSub">Select a layer on the canvas</div><label class="layer-picker">Select a layer<select id="layerPicker"><option value="">No selection</option>${layers.map(l => `<option value="${l.id}">${l.name}</option>`).join("")}</select></label></div>
     <div class="section">
       <div class="label">Align by</div>
       <div class="segmented" role="group" aria-label="Align by">
@@ -214,6 +221,7 @@ for (const l of Object.values(byId)) {
         + '<span class="dot geo" style="left:50%;top:50%"></span>'
         + '<span class="dot vis" style="left:' + l.visual.x * 100 + '%;top:' + l.visual.y * 100 + '%"></span>'
         + '<span class="handle tl"></span><span class="handle tr"></span><span class="handle bl"></span><span class="handle br"></span>';
+    el.setAttribute("role", LAYERS.some(child => child.parent === l.id) ? "group" : "img");
     el.setAttribute("aria-label", l.name);
     l.el = el;
 }
@@ -308,6 +316,7 @@ function report(action) {
 
 function select(ids) {
     state.selection = ids;
+    $("layerPicker").value = ids.length === 1 ? ids[0] : "";
     for (const l of Object.values(byId)) l.el.classList.toggle("selected", ids.includes(l.id));
     renderPanel();
 }
@@ -395,7 +404,9 @@ document.querySelectorAll("[data-tip]").forEach((b) => {
 
 // Keyboard: the align shortcuts of design tools (⌥ + A H D W V S), arrow nudges, Escape.
 const KEYS = { KeyA: "left", KeyH: "hcenter", KeyD: "right", KeyW: "top", KeyV: "vcenter", KeyS: "bottom" };
+$("layerPicker").addEventListener("change", (e) => select(e.target.value ? [e.target.value] : []));
 document.addEventListener("keydown", (e) => {
+    if (e.target.matches("input, select, button, a")) return;
     if (e.altKey && KEYS[e.code]) { e.preventDefault(); align(KEYS[e.code]); return; }
     if (e.key === "Escape") { select([]); return; }
     const step = e.shiftKey ? 10 : 1, move = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] }[e.key];
@@ -419,6 +430,6 @@ fit();
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
     const { html, layers } = await renderDemo();
     console.log(layers.map((l) => `${l.id.padEnd(15)} visual ${(l.visual.x * 100).toFixed(1)}%, ${(l.visual.y * 100).toFixed(1)}%  ink x ${(l.ink.x0 * 100).toFixed(1)}–${(l.ink.x1 * 100).toFixed(1)}% y ${(l.ink.y0 * 100).toFixed(1)}–${(l.ink.y1 * 100).toFixed(1)}%  faint ${l.faint}%`).join("\n"));
-    writeFileSync(join(HERE, "dist/demo.html"), html);
+    writeFileSync(join(HERE, "dist/demo.html"), demoPage(html));
     console.log(`wrote dist/demo.html (${(html.length / 1024).toFixed(0)} KB, ${layers.length} measured layers)`);
 }

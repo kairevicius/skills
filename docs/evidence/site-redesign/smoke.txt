@@ -1,0 +1,24 @@
+Accessibility PASS: home @ 390, WCAG A/AA automated checks
+Site smoke PASS: home @ 390, title="Skills · Measure and verify", light, no overflow, images, links, skip link
+Accessibility PASS: optical-balance @ 390, WCAG A/AA automated checks
+Site smoke PASS: optical-balance @ 390, title="Optical balance", light, no overflow, images, links, skip link
+Accessibility PASS: write-up @ 390, WCAG A/AA automated checks
+Embedded demo PASS: geometric/optical alignment and layer picker @ 390
+Site smoke PASS: write-up @ 390, title="The box is not the ink", light, no overflow, images, links, skip link
+Accessibility PASS: demo @ 390, WCAG A/AA automated checks
+Demo alignment PASS: geometric x=44px; optical x=46.767px; keyboard layer picker selects Play
+Site smoke PASS: demo @ 390, title="Optical align", light, no overflow, images, links, skip link
+Accessibility PASS: proof @ 390, WCAG A/AA automated checks
+Site smoke PASS: proof @ 390, title="Proof · Claims a reader can check", light, no overflow, images, links, skip link
+Accessibility PASS: home @ 1280, WCAG A/AA automated checks
+Site smoke PASS: home @ 1280, title="Skills · Measure and verify", light, no overflow, images, links, skip link
+Accessibility PASS: optical-balance @ 1280, WCAG A/AA automated checks
+Site smoke PASS: optical-balance @ 1280, title="Optical balance", light, no overflow, images, links, skip link
+Accessibility PASS: write-up @ 1280, WCAG A/AA automated checks
+Embedded demo PASS: geometric/optical alignment and layer picker @ 1280
+Site smoke PASS: write-up @ 1280, title="The box is not the ink", light, no overflow, images, links, skip link
+Accessibility PASS: demo @ 1280, WCAG A/AA automated checks
+Demo alignment PASS: geometric x=44px; optical x=46.767px; keyboard layer picker selects Play
+Site smoke PASS: demo @ 1280, title="Optical align", light, no overflow, images, links, skip link
+Accessibility PASS: proof @ 1280, WCAG A/AA automated checks
+Site smoke PASS: proof @ 1280, title="Proof · Claims a reader can check", light, no overflow, images, links, skip link
