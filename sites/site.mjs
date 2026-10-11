@@ -20,7 +20,7 @@ export function sitePage(html, page) {
         const title = text.replace(/<[^>]*>/g, '');
         const id = attrs.match(/id="([^"]+)"/)?.[1] ?? title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-$/, '');
         sections.push({ id, title });
-        return `<h2${attrs.includes('id=') ? attrs : `${attrs} id="${id}"`}>${text}<span class="section-mark" aria-hidden="true">§</span></h2>`;
+        return `<h2${attrs.includes('id=') ? attrs : `${attrs} id="${id}"`}>${text}</h2>`;
     });
     const nav = navigation(page, prefix);
     const rail = `<aside class="site-rail"><p class="rail-label">Measure &amp; verify</p>${nav}<nav class="site-toc" aria-label="On this page">${sections.map(({ id, title }) => `<a href="#${id}">${title}</a>`).join('')}</nav><a href="https://github.com/kairevicius/skills">GitHub ↗</a></aside>`;

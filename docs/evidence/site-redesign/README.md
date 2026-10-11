@@ -13,7 +13,8 @@ curl -L --fail https://skills.wheresryan.sh/anatomy/_next/static/css/3e834ea9191
 
 The stylesheet defines a narrow reading column, a sticky desktop rail, a pale light background, compact sans-serif text,
 serif details, horizontal section rules, and white rounded code cards with soft shadows.
-The redesign uses those patterns with our existing figures, copy, and system fonts. No reference text, brand, or assets were copied.
+The redesign uses those patterns with our existing figures and copy. Review fixes use the body sans throughout,
+with monospace for code and measurements, and remove trailing section glyphs. No reference text, brand, or assets were copied.
 Reduced motion stops decorative animation. Cards and current navigation items have no left accent bars.
 
 ## Screenshots
@@ -56,7 +57,7 @@ SITE_AXE_PATH=/tmp/site-redesign-a11y/node_modules/axe-core/axe.min.js \
 
 Automated WCAG A/AA checks supplement screenshot inspection and keyboard checks; they do not prove every accessibility requirement.
 The smoke script checks titles, image decoding, internal links and anchors, overflow, light mode under a dark preference,
-skip-link focus, and actual geometric/optical alignment in both the standalone and embedded demos.
+skip-link focus, heading glyph removal, computed font families, and actual geometric/optical alignment in both the standalone and embedded demos.
 
 ## Blast radius
 

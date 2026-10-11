@@ -58,6 +58,24 @@ try {
             assert.equal(state.background, 'rgb(250, 250, 250)');
             assert.equal(state.scheme, 'light');
             assert.equal(state.mains, 1);
+            for (const frame of page.frames()) {
+                const typography = await frame.evaluate(() => {
+                    const bodyFont = getComputedStyle(document.body).fontFamily;
+                    const elements = [...document.querySelectorAll('body *')];
+                    return {
+                        headings: [...document.querySelectorAll('h1, h2, h3, h4, h5, h6')].map(el => el.textContent),
+                        alternateFonts: elements.filter(el => {
+                            const font = getComputedStyle(el).fontFamily;
+                            return font !== bodyFont && !font.includes('monospace');
+                        }).map(el => `${el.tagName}.${el.className}: ${getComputedStyle(el).fontFamily}`),
+                        bodyFont,
+                    };
+                });
+                assert.ok(typography.bodyFont.startsWith('system-ui'), `${name} must use the body sans`);
+                assert.deepEqual(typography.alternateFonts, [], `${name} has alternate fonts @ ${width}`);
+                assert.ok(typography.headings.every(title => !/[§¶#↗🔗]\s*$/.test(title)), `${name} has heading anchor marks`);
+            }
+            console.log(`Typography PASS: ${name} @ ${width}, body sans throughout, no heading anchor marks`);
             assert.ok(state.current.length > 0, `${name} has no current navigation item`);
             if (axeSource) {
                 await page.addScriptTag({ content: axeSource });

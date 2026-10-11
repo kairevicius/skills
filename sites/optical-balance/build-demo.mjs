@@ -87,8 +87,9 @@ export async function renderDemo() {
     color-scheme: light;
 }
 * { box-sizing: border-box; }
+button, input, select, textarea { font-family: inherit; }
 html, body { height: 100%; }
-body { margin: 0; background: var(--canvas); color: var(--ink); font: var(--size-body)/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; -webkit-font-smoothing: antialiased; overflow: hidden; }
+body { margin: 0; background: var(--canvas); color: var(--ink); font: var(--size-body)/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; -webkit-font-smoothing: antialiased; overflow: hidden; }
 .app { display: grid; grid-template-columns: minmax(0, 1fr) 280px; height: 100vh; }
 .canvas { position: relative; overflow: hidden; user-select: none; -webkit-user-select: none; }
 .canvas-title { position: absolute; left: 20px; top: 16px; font-weight: 600; font-size: var(--size-body); }
