@@ -78,16 +78,19 @@ ol.steps li::before { color: var(--muted); font-style: italic; }
 .site-column .scroll { max-width: 100%; overflow-x: auto; }
 .site-column .scroll table { min-width: 540px; }
 @media (min-width: 1120px) {
-    .site-page { display: grid; grid-template-columns: minmax(0,1fr) 168px 550px 168px minmax(0,1fr); column-gap: 48px; padding: 56px 20px 120px; align-items: start; }
-    .site-column { grid-column: 3; width: 100%; margin: 0; }
+    /* The rail sits on the window's left edge; equal side columns keep the article centered. */
+    .site-page { display: grid; grid-template-columns: minmax(168px,1fr) 550px minmax(168px,1fr); column-gap: 48px; padding: 56px 40px 120px; align-items: start; }
+    .site-column { grid-column: 2; width: 100%; margin: 0; }
     .site-column > .site-nav { display: none; }
-    .site-rail { display: grid; gap: 28px; grid-column: 2; grid-row: 1; position: sticky; top: 56px; font-size: 13px; }
+    .site-rail { display: grid; gap: 28px; grid-column: 1; grid-row: 1; justify-self: start; position: sticky; top: 56px; font-size: 13px; }
     .site-rail .site-nav { display: grid; gap: 0; margin: 0; }
     .site-rail .site-nav a { min-height: 26px; }
     .site-toc { display: grid; gap: 8px; }
     .site-toc a { color: var(--muted); text-decoration: none; line-height: 1.4; }
     .site-toc a:hover { color: var(--ink); }
-    .site-rail .rail-label { color: var(--muted); font-size: 20px; font-style: italic; margin: 0; }
+    .author { display: inline-flex; align-items: center; gap: 10px; justify-self: start; padding: 4px 14px 4px 4px; border-radius: 999px; background: #fff; box-shadow: var(--card-shadow); color: var(--ink); font-weight: 500; text-decoration: none; white-space: nowrap; transition: background .15s ease; }
+    .author:hover { background: #f6f6f6; color: var(--ink); }
+    .author img { display: block; width: 28px; height: 28px; border-radius: 50%; }
 }
 @media (prefers-reduced-motion: reduce) {
     html { scroll-behavior: auto; }

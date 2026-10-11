@@ -85,3 +85,4 @@ Set `OPTICAL_CHROMIUM` to use another Chromium executable. Pages runs the checks
 [MIT](LICENSE). Brand logos are their owners' trademarks and appear as test material.
 [Bootstrap Icons](https://icons.getbootstrap.com/) fixtures use the MIT license.
 Vermeer's *Girl with a Pearl Earring* is in the public domain.
+The reel's button label is set in [Geist](https://vercel.com/font) under the SIL Open Font License 1.1.

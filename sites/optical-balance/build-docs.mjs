@@ -3,7 +3,7 @@ import { demoPage } from '../site.mjs';
  * Builds the docs site from the skill's own measurement code, so each number on
  * a page is a real measurement of the image beside it. Re-run after any change to lib.mjs:
  *
- *   node sites/optical-balance/build-docs.mjs            # dist/index.html (landing), write-up.html, demo.html, and dist/assets
+ *   node sites/optical-balance/build-docs.mjs            # dist/index.html (landing), write-up.html, demo.html, reel.html, and dist/assets
  *   node sites/optical-balance/build-docs.mjs --inline   # the same pages with every figure embedded, one file each
  *
  * Install the skill's dependency first: `npm ci` in skills/optical-balance/scripts.
@@ -15,6 +15,7 @@ import { fileURLToPath } from "node:url";
 import renderWriteUp from "./page-write-up.mjs";
 import { renderDemo } from "./build-demo.mjs";
 import renderLanding from "./page-landing.mjs";
+import renderReel from "./page-reel.mjs";
 import { equalize, measure, measureFile, loadRaster, perceptualContrast, parseColor, rasterizeSvg, renderFrame, renderStrip, renderTile, toRaw, ACCENT_CONTRAST, ACCENT_MAX_SHARE, BACKGROUND_CONTRAST, CENTER_BLEND, EXTENT_ALPHA, DEFAULT_RASTER_EDGE } from "../../skills/optical-balance/scripts/lib.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -107,6 +108,28 @@ async function place(elementPng, { width, height, plate, dx = 0, dy = 0, shape =
     return sharp(Buffer.from(bgSvg)).composite([{ input: elementPng, left, top }]).png().toBuffer();
 }
 
+/**
+ * One element on one plate as layers a page can animate: where box centering puts the
+ * element, its ink box, and the move to optical centering. The move is the integer
+ * difference between the box-centered placement and the converged optical placement on the
+ * same plate, so the end state is a real composite.
+ */
+async function motionLayer(fitted, plateOpts) {
+    const bgLum = parseColor(plateOpts.plate).lum;
+    const m = measure(await toRaw(fitted), bgLum);
+    const { width, height } = plateOpts;
+    const build = (dx, dy) => place(fitted, { ...plateOpts, dx, dy });
+    const { png, dx, dy } = await converge(build, bgLum, { dx: m.offset.x, dy: m.offset.y });
+    const settled = measure(await toRaw(png), bgLum);
+    const left = Math.round((width - m.width) / 2), top = Math.round((height - m.height) / 2);
+    return {
+        left, top, w: m.width, h: m.height,
+        ink: inkRect(m),
+        moveX: Math.round((width - m.width) / 2 + dx) - left, moveY: Math.round((height - m.height) / 2 + dy) - top,
+        residualPx: Math.hypot(settled.visual.x - settled.box.x, settled.visual.y - settled.box.y),
+    };
+}
+
 const figures = {};
 const numbers = {};
 
@@ -177,18 +200,12 @@ const numbers = {};
         for (const it of motionItems) {
             const box = Math.round(plate * (it.art ?? 0.58));
             const fitted = await sharp(it.png).resize(box, box, { fit: "inside", background: { r: 0, g: 0, b: 0, alpha: 0 } }).png().toBuffer();
-            const m = measure(await toRaw(fitted), plateLum);
-            const build = (dx, dy) => place(fitted, { width: plate, height: plate, plate: PLATE_HEX, dx, dy });
-            const { png, dx, dy } = await converge(build, plateLum, { dx: m.offset.x, dy: m.offset.y });
-            const settled = measure(await toRaw(png), plateLum);
-            const baseLeft = Math.round((plate - m.width) / 2), baseTop = Math.round((plate - m.height) / 2);
+            const l = await motionLayer(fitted, { width: plate, height: plate, plate: PLATE_HEX });
             layers.push({
                 id: it.id,
                 src: await save(`intro-layer-${it.id}.png`, fitted),
-                left: layers.length * outer + GAP / 2 + baseLeft, top: GAP / 2 + baseTop, w: m.width, h: m.height,
-                ink: inkRect(m),
-                moveX: Math.round((plate - m.width) / 2 + dx) - baseLeft, moveY: Math.round((plate - m.height) / 2 + dy) - baseTop,
-                residualPx: Math.hypot(settled.visual.x - settled.box.x, settled.visual.y - settled.box.y),
+                ...l,
+                left: layers.length * outer + GAP / 2 + l.left, top: GAP / 2 + l.top,
             });
         }
         const rowW = outer * motionItems.length, rowH = outer;
@@ -284,12 +301,14 @@ const numbers = {};
 }
 
 // ---------------------------------------------------------------- 3. Icons in round buttons
+/** A play triangle drawn centered by its ink box in a 24px icon, the common hand-drawn case. */
+const playSvg = (ink) => `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path d="M4.25 3.5 L19.75 12 L4.25 20.5 Z" fill="${ink}"/></svg>`;
 {
     // The same grey plate the pill uses, so every plated figure on the page shares one surface.
     const BUTTON = 64, ICON = 24, SCALE = 12, PLATE = "#e8e8e8", INK = "#1a1a1a";
     const plateLum = parseColor(PLATE).lum;
     const icons = {
-        play: `<svg xmlns="http://www.w3.org/2000/svg" width="${ICON}" height="${ICON}" viewBox="0 0 24 24"><path d="M4.25 3.5 L19.75 12 L4.25 20.5 Z" fill="${INK}"/></svg>`,
+        play: playSvg(INK),
         arrow: `<svg xmlns="http://www.w3.org/2000/svg" width="${ICON}" height="${ICON}" viewBox="0 0 24 24" fill="none" stroke="${INK}" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4.25 12h15.5"/><path d="M13.25 5.5 L19.75 12 L13.25 18.5"/></svg>`,
     };
     numbers.icons = {};
@@ -746,6 +765,94 @@ ${dot(ext)}${dot(mass)}${dot(vis, true)}</svg>`;
     figures["sizing-experiment"] = await save("sizing-experiment.png", sheet);
 }
 
+// ---------------------------------------------------------------- 13. The reel
+/** Vercel's triangle: the triangle subpath of sources/vercel.svg, in its own 75.18 x 64.5 box. */
+const VERCEL_TRIANGLE = { d: "M37.59.25l36.95 64H.64l36.95-64z", w: 75.18, h: 64.5 };
+/**
+ * The examples alone and large, one per scene, for a screen recording. Sizes are stage px;
+ * every scene renders at REEL_SCALE device px per stage px, so the art stays sharp when the
+ * stage fills a large screen. The art ships as WebP, which the landing page loads above the fold.
+ */
+{
+    const REEL_SCALE = 3;
+    const clear = { r: 0, g: 0, b: 0, alpha: 0 };
+    const pct = (v, total) => (v / total) * 100;
+    const saveWebp = async (name, png) => { await sharp(png).webp({ quality: 90, effort: 4 }).toFile(join(OUT, name)); return `assets/${name}`; };
+    const scenes = [];
+    numbers.reel = {};
+
+    /** One element on one plate: the plate in stage px, the element as a layer in percent of the plate. */
+    const single = async (id, label, fitted, plate) => {
+        const W = plate.w * REEL_SCALE, H = plate.h * REEL_SCALE;
+        const l = await motionLayer(fitted, { width: W, height: H, plate: plate.fill, shape: plate.shape, radius: (plate.radius ?? 0) * REEL_SCALE });
+        const layer = {
+            src: await saveWebp(`reel-${id}.webp`, fitted),
+            left: pct(l.left, W), top: pct(l.top, H), w: pct(l.w, W), h: pct(l.h, H),
+            mx: pct(l.moveX, l.w), my: pct(l.moveY, l.h),
+        };
+        scenes.push({ label, plate, layer });
+        numbers.reel[id] = { movePct: `${f1(layer.mx)}, ${f1(layer.my)}`, residualPx: f1(l.residualPx / REEL_SCALE) };
+    };
+
+    // The play icon box at half the button, larger than in the icon figures so the move reads on a phone.
+    {
+        const plate = { w: 440, h: 440, fill: "#e8e8e8", shape: "circle" };
+        const icon = Math.round(plate.w * REEL_SCALE * 0.5);
+        await single("play", "A play icon in a round button", await rasterizeSvg(playSvg("#1a1a1a"), { scale: icon / 24 }), plate);
+    }
+    {
+        const plate = { w: 620, h: 400, fill: "#f0f0f0", shape: "rect", radius: 48 };
+        const art = (await loadRaster(join(SRC, "amazon.svg"), { trim: true, maxEdge: 4096 })).png;
+        const fitted = await sharp(art).resize(Math.round(plate.w * REEL_SCALE * 0.72), Math.round(plate.h * REEL_SCALE * 0.72), { fit: "inside", background: clear }).png().toBuffer();
+        await single("amazon", "The Amazon wordmark in a tile", fitted, plate);
+    }
+    {
+        const plate = { w: 440, h: 440, fill: "#000000", shape: "circle" };
+        const { d, w, h } = VERCEL_TRIANGLE;
+        const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"><path d="${d}" fill="#ffffff"/></svg>`;
+        const fitted = await sharp(await rasterizeSvg(svg, { scale: (plate.w * REEL_SCALE * 0.6) / w })).trim({ threshold: 10 }).png().toBuffer();
+        await single("vercel", "The Vercel triangle on a black disc", fitted, plate);
+    }
+    // A 148 x 48 pill button: a label and a trailing arrow, white on near-black. The label is
+    // outlined from Geist by outline-label.py, so it renders the same without the font. The cap
+    // height is centered on the arrow, and the content is trimmed to its ink, so box centering
+    // is equal padding.
+    {
+        const k = 2.5, W = 148, H = 48, ICON = 16, GAP = 6, FILL = "#111111";
+        const label = readFileSync(join(SRC, "get-started.svg"), "utf8");
+        const attr = (name) => label.match(new RegExp(`\\s${name}="([^"]+)"`))[1];
+        const cap = Number(attr("data-cap-height")), advance = Number(attr("data-advance"));
+        const content = `<svg xmlns="http://www.w3.org/2000/svg" width="${advance + GAP + ICON}" height="${ICON}">
+<path d="${attr("d")}" fill="#ffffff" transform="translate(0 ${(ICON - cap) / 2})"/>
+<g transform="translate(${advance + GAP} 0) scale(${ICON / 24})" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M13 6l6 6-6 6"/></g></svg>`;
+        const fitted = await sharp(await rasterizeSvg(content, { scale: k * REEL_SCALE })).trim({ threshold: 10 }).png().toBuffer();
+        await single("button", "A Get started button with a trailing arrow", fitted, { w: W * k, h: H * k, fill: FILL, shape: "rect", radius: (H * k) / 2 });
+    }
+    // Nine logos at one height, then at one perceived size. renderStrip lays out both states.
+    {
+        const names = ["amazon", "google", "stripe", "slack", "shopify", "apple", "mastercard", "netflix", "airbnb"];
+        const files = names.map((n) => join(SRC, `${n}.svg`));
+        const layout = { height: 88, gap: 80, padding: 24, paddingY: 24, rowGap: 64, columns: 3 };
+        // One canvas width for both states, so a logo that keeps its size stays put.
+        const natural = await Promise.all([renderStrip(files, { ...layout, sizing: "height", centering: "box" }), renderStrip(files, layout)]);
+        const canvasWidth = Math.max(natural[0].width, natural[1].width);
+        const [before, after] = await Promise.all([
+            renderStrip(files, { ...layout, sizing: "height", centering: "box", canvasWidth, scale: REEL_SCALE }),
+            renderStrip(files, { ...layout, canvasWidth, scale: REEL_SCALE }),
+        ]);
+        const rect = (p) => ({ left: pct(p.left, before.width), top: pct(p.top, before.height), w: pct(p.width, before.width), h: pct(p.height, before.height) });
+        const logos = await Promise.all(names.map(async (name, i) => {
+            const b = before.rows[i], a = after.rows[i];
+            // The larger of the two renders, so neither state shows an enlarged image.
+            const big = b.render.width >= a.render.width ? b.render : a.render;
+            return { name, src: await saveWebp(`reel-logo-${name}.webp`, big.png), before: rect(b.placed), after: rect(a.placed) };
+        }));
+        scenes.push({ label: "Nine logos, from one height to one perceived size", logos, strip: { w: before.width / REEL_SCALE, h: before.height / REEL_SCALE } });
+        numbers.reel.logos = { spreadBefore: f1(before.verify.spread), spreadAfter: f1(after.verify.spread) };
+    }
+    figures.reel = { scenes };
+}
+
 // ---------------------------------------------------------------- page
 const N = numbers, F = figures;
 /** 1/3 reads better than its decimal in prose and in the constants table. */
@@ -906,8 +1013,9 @@ for (const id of LANDING_FIGURES) {
 }
 
 const demo = await renderDemo();
-writeFileSync(join(DIST, "index.html"), finish(renderLanding({ F, N, label, webp })));
+writeFileSync(join(DIST, "index.html"), finish(renderLanding({ F, N, label, webp, reel: finish(renderReel(F.reel, { embed: true })) })));
 writeFileSync(join(DIST, "write-up.html"), finish(renderWriteUp({ F, N, img, label, labelOf, offCenterOf, demo, PAIR_W, ACCENT_SHARE_LABEL })));
 writeFileSync(join(DIST, "demo.html"), demoPage(demo.html));
-console.log(`wrote dist/index.html, dist/write-up.html and dist/demo.html${INLINE ? " (self-contained)" : ""}, and ${Object.keys(figures).length - 1} figures under dist/assets`);
+writeFileSync(join(DIST, "reel.html"), finish(renderReel(F.reel)));
+console.log(`wrote dist/index.html, dist/write-up.html, dist/demo.html and dist/reel.html${INLINE ? " (self-contained)" : ""}, and ${Object.keys(figures).length - 1} figures under dist/assets`);
 console.log(JSON.stringify(numbers, null, 1));
