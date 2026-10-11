@@ -4,9 +4,12 @@ import { sitePage } from '../site.mjs';
  * Like the write-up, it states no number that the build did not measure; each value
  * comes from the figures and numbers that build-docs.mjs passes in.
  */
-import { installCommand, motionFigure, MOTION_CSS } from "./page-parts.mjs";
+import { installCommand } from "./page-parts.mjs";
+import { BASE, PAPER } from "./page-reel.mjs";
 
-export default function renderLanding({ F, N, label, webp }) {
+export default function renderLanding({ F, N, label, webp, reel }) {
+    // Embedded through srcdoc, like the write-up's demo, so the page still works as one file.
+    const reelDoc = reel.replace(/&/g, "&amp;").replace(/"/g, "&quot;");
     const pct1 = (v) => Number(v).toFixed(1);
     const pic = (id, alt) => `<img src="${webp[id]}" width="${F[id].rw}" height="${F[id].rh}" alt="${alt}" loading="lazy" decoding="async">`;
     /** A before-and-after pair: the measured label above each image, one line of measured fact below. */
@@ -46,7 +49,7 @@ ol.steps li::before { content: counter(step); }
 ol.steps strong { font-weight: 600; }
 ul.asks { margin: 0 0 16px; padding-left: 20px; max-width: 640px; }
 ul.asks li { margin: 6px 0; }
-${MOTION_CSS}
+.reel iframe { display: block; width: 100%; aspect-ratio: ${BASE.w} / ${BASE.h}; border: 0; border-radius: 14px; background: ${PAPER}; box-shadow: var(--card-shadow); }
 </style>
 </head>
 <body>
@@ -56,8 +59,8 @@ ${MOTION_CSS}
 <main>
 <h1>Center by what the eye sees</h1>
 <p class="lede">A layout centers the bounding box, but the eye does not. Optical balance is an agent skill, for Claude Code, Codex, Cursor, or any agent that reads skills. It estimates centering and sizing with a reproducible heuristic; measured gates do not prove human preference. It gives you the CSS offset and checks the result.</p>
-<figure class="hero">${motionFigure(F.introMotion)}</figure>
-<p class="small">Each shape moves from its box center to its measured visual center.</p>
+<figure class="hero reel"><iframe srcdoc="${reelDoc}" title="Five examples move from their box center to their visual center, and nine logos move to one perceived size"></iframe></figure>
+<p class="small">Each example moves from its box center to its measured visual center, and the logos move to one perceived size.</p>
 <div class="links"><a href="#install">Install the skill</a><a href="demo.html">Try the demo</a></div>
 
 <section class="block" aria-labelledby="fixes">

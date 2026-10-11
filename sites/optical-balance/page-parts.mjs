@@ -20,10 +20,13 @@ export function motionFigure(M, alt = "A triangle, the Amazon wordmark, and a pl
  * returns. The dashed box is part of the layer, so it stays visible and moves with the
  * shape. With reduced motion, the shapes rest at their optical positions.
  */
+/** The move from geometric to optical centering, shared by every animated figure. */
+export const EASE = "cubic-bezier(0.65, 0, 0.35, 1)";
+
 export const MOTION_CSS = `
 .motion { position: relative; display: block; width: 100%; }
 .motion > img { display: block; width: 100%; height: auto; }
-.motion-el { position: absolute; display: block; animation: settle 6s cubic-bezier(0.65, 0, 0.35, 1) infinite; }
+.motion-el { position: absolute; display: block; animation: settle 6s ${EASE} infinite; }
 .motion-el img { display: block; width: 100%; height: 100%; }
 .motion-box { position: absolute; overflow: visible; }
 .motion-box rect { fill: none; stroke: #a6a6a6; stroke-width: 1px; stroke-dasharray: 4 3; vector-effect: non-scaling-stroke; }

@@ -1,6 +1,8 @@
 import { readFileSync } from 'node:fs';
 
 export const siteCSS = readFileSync(new URL('./style.css', import.meta.url), 'utf8');
+// The avatar is inlined, so the rail renders the same from dist/, from _site/, and from an --inline build.
+const author = `<a class="author" href="https://github.com/kairevicius"><img src="data:image/jpeg;base64,${readFileSync(new URL('./avatar.jpg', import.meta.url)).toString('base64')}" alt="" width="28" height="28">Paulius Kairevicius</a>`;
 
 export function navigation(page, prefix) {
     const links = [
@@ -23,7 +25,7 @@ export function sitePage(html, page) {
         return `<h2${attrs.includes('id=') ? attrs : `${attrs} id="${id}"`}>${text}</h2>`;
     });
     const nav = navigation(page, prefix);
-    const rail = `<aside class="site-rail"><p class="rail-label">Measure &amp; verify</p>${nav}<nav class="site-toc" aria-label="On this page">${sections.map(({ id, title }) => `<a href="#${id}">${title}</a>`).join('')}</nav><a href="https://github.com/kairevicius/skills">GitHub ↗</a></aside>`;
+    const rail = `<aside class="site-rail">${author}${nav}<nav class="site-toc" aria-label="On this page">${sections.map(({ id, title }) => `<a href="#${id}">${title}</a>`).join('')}</nav><a href="https://github.com/kairevicius/skills">GitHub ↗</a></aside>`;
     html = html.replace(/<pre(\s[^>]*)?>/g, '<pre$1 tabindex="0">').replace(/<div class="scroll">/g, '<div class="scroll" tabindex="0">');
     return html.replace('</head>', `<style>${siteCSS}</style></head>`)
         .replace('<body>', `<body><a class="skip-link" href="#content">Skip to content</a><div class="site-page">${rail}<div class="site-column">${nav}`)
