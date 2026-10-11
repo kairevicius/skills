@@ -6,7 +6,7 @@ try {
     const page = await browser.newPage();
     const errors = [];
     page.on('pageerror', error => errors.push(error.message));
-    for (const name of ['index.html', 'write-up.html', 'demo.html']) {
+    for (const name of ['index.html', 'write-up.html', 'demo.html', 'reel.html']) {
         await page.goto(new URL(`dist/${name}`, import.meta.url).href, { waitUntil: 'domcontentloaded', timeout: 15000 });
         await page.evaluate(async () => {
             const images = [...document.images];
