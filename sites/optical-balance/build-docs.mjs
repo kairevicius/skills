@@ -14,7 +14,7 @@ import { fileURLToPath } from "node:url";
 import renderWriteUp from "./page-write-up.mjs";
 import { renderDemo } from "./build-demo.mjs";
 import renderLanding from "./page-landing.mjs";
-import { equalize, measure, measureFile, loadRaster, luminance, parseColor, rasterizeSvg, renderFrame, renderStrip, renderTile, toRaw, ACCENT_CONTRAST, ACCENT_MAX_SHARE, BACKGROUND_CONTRAST, CENTER_BLEND, EXTENT_ALPHA, DEFAULT_RASTER_EDGE } from "../../skills/optical-balance/scripts/lib.mjs";
+import { equalize, measure, measureFile, loadRaster, perceptualContrast, parseColor, rasterizeSvg, renderFrame, renderStrip, renderTile, toRaw, ACCENT_CONTRAST, ACCENT_MAX_SHARE, BACKGROUND_CONTRAST, CENTER_BLEND, EXTENT_ALPHA, DEFAULT_RASTER_EDGE } from "../../skills/optical-balance/scripts/lib.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SKILL = join(HERE, "../../skills/optical-balance");
@@ -270,7 +270,7 @@ const numbers = {};
     figures["paypal-box"] = record(await save("paypal-box.png", plain), PW, PH, { box: mp.box, marks: [mp.visual], bboxes: [inkRect(mp)] });
     figures["paypal-visual"] = record(await save("paypal-visual.png", balanced), PW, PH, { box: mb.box, marks: [mb.visual], bboxes: [inkRect(mb)] });
     numbers.paypal = {
-        accentShare: Math.round(a.accentShare * 100),
+        accentShare: Math.round(Math.max(a.accentShare, a.lumaAccentShare) * 100),
         art: `${a.width}x${a.height}`,
         alphaX: f1(a.alphaCentroid.x), extentX: f1(a.extent.x), visualX: f1(a.visual.x), forcedX: f1(fa.visual.x), boxX: f1(a.box.x),
         shiftPct: f1(((a.box.x - a.visual.x) / a.width) * 100),
@@ -423,10 +423,9 @@ const numbers = {};
     figures["amazon-dark-box"] = record(await save("amazon-dark-box.png", plain.png), TILE, TILE, { box: plain.result.box, marks: [plain.result.visual], bboxes: [inkRect(plain.result)], dark: true });
     figures["amazon-dark-visual"] = record(await save("amazon-dark-visual.png", balanced.png), TILE, TILE, { box: balanced.result.box, marks: [balanced.result.visual], bboxes: [inkRect(balanced.result)], dark: true });
     const a = balanced.artwork;
-    const orange = luminance(0xff, 0x99, 0x00);
     numbers.amazonDark = {
-        dyPct: f1(a.offsetPct.y), dy: f1(a.offset.y), accentShare: Math.round(a.accentShare * 100), discounted: a.discounted,
-        smileContrastLight: (Math.abs(orange - 255) / 255).toFixed(2), smileContrastDark: (orange / 255).toFixed(2),
+        dyPct: f1(a.offsetPct.y), dy: f1(a.offset.y), accentShare: Math.round(Math.max(a.accentShare, a.lumaAccentShare) * 100), discounted: a.discounted,
+        smileContrastLight: perceptualContrast(255, 153, 0, 255).toFixed(2), smileContrastDark: perceptualContrast(255, 153, 0, 0).toFixed(2),
         boxDy: f1(plain.result.visual.y - TILE / 2), visualDy: f1(balanced.result.visual.y - TILE / 2),
         alphaY: f1(a.alphaCentroid.y), extentY: f1(a.extent.y), visualY: f1(a.visual.y), boxY: f1(a.box.y),
     };
@@ -666,7 +665,7 @@ const numbers = {};
             const o = i * 4;
             const a = raw.data[o + 3];
             if (a === 0) continue;
-            const contrast = Math.abs(luminance(raw.data[o], raw.data[o + 1], raw.data[o + 2]) - plateLum) / 255;
+            const contrast = perceptualContrast(raw.data[o], raw.data[o + 1], raw.data[o + 2], plateLum);
             if (contrast <= BACKGROUND_CONTRAST) continue;
             const w = (a / 255) * (squared ? contrast * contrast : 1);
             const v = Math.round(255 * (1 - w));
@@ -713,8 +712,8 @@ ${dot(ext)}${dot(mass)}${dot(vis, true)}</svg>`;
     figures["method-centers"] = record(await save("method-centers.png", diagram), ds, dh, { box: { x: ds / 2, y: dh / 2 } });
     figures.methodDiagram = { w: DIAG_W, h: Math.round(dh / 2) };
     numbers.method = {
-        letterWeight: (Math.pow(Math.abs(luminance(0x22, 0x1f, 0x1f) - 255) / 255, 2)).toFixed(2),
-        smileWeight: (Math.pow(Math.abs(luminance(0xff, 0x99, 0x00) - 255) / 255, 2)).toFixed(2),
+        letterWeight: (Math.pow(perceptualContrast(0x22, 0x1f, 0x1f, 255), 2)).toFixed(2),
+        smileWeight: (Math.pow(perceptualContrast(0xff, 0x99, 0x00, 255), 2)).toFixed(2),
         extentY: f1(dm.extent.y), massY: f1(dm.mass.y), visualY: f1(dm.visual.y),
         gapPct: f1(((dm.mass.y - dm.extent.y) / dm.height) * 100),
     };

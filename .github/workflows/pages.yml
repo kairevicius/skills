@@ -45,12 +45,16 @@ jobs:
       - name: Test proof
         working-directory: skills/proof/scripts
         run: npm ci && npm test
+      - name: Check colour-logo snapshots
+        run: node sites/optical-balance/colour-test.mjs
       - name: Build the sites
         run: |
           node sites/optical-balance/build-docs.mjs
           mkdir -p _site
           cp sites/index.html _site/index.html
           cp -R sites/optical-balance/dist _site/optical-balance
+      - name: Test the optical-balance site in Chromium
+        run: node sites/optical-balance/browser-test.mjs
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
