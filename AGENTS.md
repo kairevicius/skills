@@ -1,6 +1,6 @@
 # Working on this repository
 
-These rules are for any agent or person who changes this repository. `CLAUDE.md` imports this file, so every agent reads the same rules.
+These rules are for any agent or person who changes this repository. Every agent reads this file, Claude Code included (2.1.277 and later), so there is no separate `CLAUDE.md`.
 
 ## Layout
 
