@@ -1,0 +1,1295 @@
+
+> proof@0.3.0 test
+> node --test test/*.mjs
+
+TAP version 13
+# Subtest: the shipped example has zero trust/claim/hygiene findings
+ok 1 - the shipped example has zero trust/claim/hygiene findings
+  ---
+  duration_ms: 6.286478
+  ...
+# Subtest: ref_invalid: '.', './', a leading '/' or ':', and '..' are all rejected
+ok 2 - ref_invalid: '.', './', a leading '/' or ':', and '..' are all rejected
+  ---
+  duration_ms: 1.62184
+  ...
+# Subtest: ref_invalid does not fire on an ordinary repo-relative path
+ok 3 - ref_invalid does not fire on an ordinary repo-relative path
+  ---
+  duration_ms: 0.69444
+  ...
+# Subtest: number_uncited: a claim number absent from its cited evidence is flagged
+ok 4 - number_uncited: a claim number absent from its cited evidence is flagged
+  ---
+  duration_ms: 0.656442
+  ...
+# Subtest: number_uncited does not fire when the claim's number is in the cited evidence
+ok 5 - number_uncited does not fire when the claim's number is in the cited evidence
+  ---
+  duration_ms: 0.462352
+  ...
+# Subtest: count_word: a count word in a claim is rejected, whatever the underlying evidence says
+ok 6 - count_word: a count word in a claim is rejected, whatever the underlying evidence says
+  ---
+  duration_ms: 1.485688
+  ...
+# Subtest: narrative_number_uncited: a headline number absent from every evidence description is a hygiene flag
+ok 7 - narrative_number_uncited: a headline number absent from every evidence description is a hygiene flag
+  ---
+  duration_ms: 0.561214
+  ...
+# Subtest: narrative_number_uncited does not fire when the headline's number is backed
+ok 8 - narrative_number_uncited does not fire when the headline's number is backed
+  ---
+  duration_ms: 0.369531
+  ...
+# Subtest: a fixture-derived document with no measures passes with zero trust/claim findings
+ok 9 - a fixture-derived document with no measures passes with zero trust/claim findings
+  ---
+  duration_ms: 62.287879
+  ...
+# Subtest: number_underived: a scope measure whose token is stale (does not match the re-derived value)
+ok 10 - number_underived: a scope measure whose token is stale (does not match the re-derived value)
+  ---
+  duration_ms: 99.762541
+  ...
+# Subtest: number_underived: a number found only in a commit BODY (never the subject) does not re-derive
+ok 11 - number_underived: a number found only in a commit BODY (never the subject) does not re-derive
+  ---
+  duration_ms: 89.879095
+  ...
+# Subtest: measure_unused: a measure whose token never occurs in the description is flagged
+ok 12 - measure_unused: a measure whose token never occurs in the description is flagged
+  ---
+  duration_ms: 57.587528
+  ...
+# Subtest: facts_drift: a wrong repository.first_authored_commit does not re-derive
+ok 13 - facts_drift: a wrong repository.first_authored_commit does not re-derive
+  ---
+  duration_ms: 74.955943
+  ...
+# Subtest: ownership facts are attached to a file-type evidence item
+ok 14 - ownership facts are attached to a file-type evidence item
+  ---
+  duration_ms: 73.318634
+  ...
+# Subtest: ownership_unbacked/not_checkable_from_git match whole words only, not substrings
+ok 15 - ownership_unbacked/not_checkable_from_git match whole words only, not substrings
+  ---
+  duration_ms: 64.7742
+  ...
+# Subtest: ownership_unbacked fires on a real whole-word exclusivity claim with low ownership share
+ok 16 - ownership_unbacked fires on a real whole-word exclusivity claim with low ownership share
+  ---
+  duration_ms: 63.814397
+  ...
+# Subtest: not_checkable_from_git fires on a whole-word not-checkable claim
+ok 17 - not_checkable_from_git fires on a whole-word not-checkable claim
+  ---
+  duration_ms: 60.664873
+  ...
+# Cloning into '/tmp/proof-fixture-o4sOXA/shallow'...
+# wrote /tmp/proof-fixture-o4sOXA/cli-evidence.json
+# wrote /tmp/proof-fixture-o4sOXA/repo/proof/evidence.json
+# wrote /tmp/proof-fixture-o4sOXA/print-evidence.json
+# error: --since is not a real calendar date: 2026-13-99
+# error: zero commits matched identity email(s) [nobody@invalid.test] in /tmp/proof-fixture-o4sOXA/repo. Stop — do not fabricate a proof.
+# error: refusing to analyze a shallow clone at /tmp/proof-fixture-o4sOXA/shallow — history is incomplete. Run 'git fetch --unshallow' first.
+# error: identity 'ada' is not an exact email address. Matching is exact-email-only (no name, no substring, no "@") — run 'git-evidence.mjs --discover <text>' to find the exact emails to use.
+# Subtest: collect() against the synthetic fixture
+    # Subtest: exact summary numbers
+    ok 1 - exact summary numbers
+      ---
+      duration_ms: 88.698928
+      ...
+    # Subtest: repository context numbers
+    ok 2 - repository context numbers
+      ---
+      duration_ms: 69.297345
+      ...
+    # Subtest: PR detected from the squash-commit subject
+    ok 3 - PR detected from the squash-commit subject
+      ---
+      duration_ms: 75.002085
+      ...
+    # Subtest: blame share for src/index.js is 100% subject (Other Person never touches it)
+    ok 4 - blame share for src/index.js is 100% subject (Other Person never touches it)
+      ---
+      duration_ms: 57.168825
+      ...
+    # Subtest: scope src/** commit and new_files counts
+    ok 5 - scope src/** commit and new_files counts
+      ---
+      duration_ms: 56.812183
+      ...
+    # Subtest: a rename is a touch, not a new file, and is attributed to the new path only
+    ok 6 - a rename is a touch, not a new file, and is attributed to the new path only
+      ---
+      duration_ms: 53.137582
+      ...
+    # Subtest: identity matching is exact-email equality, ASCII-case-insensitive only
+    ok 7 - identity matching is exact-email equality, ASCII-case-insensitive only
+      ---
+      duration_ms: 114.978883
+      ...
+    # Subtest: identities list two names sharing one email; the other contributor never appears
+    ok 8 - identities list two names sharing one email; the other contributor never appears
+      ---
+      duration_ms: 60.413149
+      ...
+    # Subtest: a tab in a filename round-trips through git's C-quoting and stays excluded
+    ok 9 - a tab in a filename round-trips through git's C-quoting and stays excluded
+      ---
+      duration_ms: 54.999392
+      ...
+    # Subtest: --since filters to the exact calendar day regardless of wall-clock time of day
+    ok 10 - --since filters to the exact calendar day regardless of wall-clock time of day
+      ---
+      duration_ms: 47.59072
+      ...
+    # Subtest: --redacted nulls repo name and remote
+    ok 11 - --redacted nulls repo name and remote
+      ---
+      duration_ms: 53.72048
+      ...
+    # Subtest: an impossible calendar date in --since is rejected (exit code 2)
+    ok 12 - an impossible calendar date in --since is rejected (exit code 2)
+      ---
+      duration_ms: 5.596781
+      ...
+    # Subtest: zero matching commits stops rather than fabricating a proof (exit code 3)
+    ok 13 - zero matching commits stops rather than fabricating a proof (exit code 3)
+      ---
+      duration_ms: 10.950652
+      ...
+    # Subtest: a shallow clone is refused (exit code 4)
+    ok 14 - a shallow clone is refused (exit code 4)
+      ---
+      duration_ms: 6.19605
+      ...
+    # Subtest: output is byte-identical across two runs given the same --as-of
+    ok 15 - output is byte-identical across two runs given the same --as-of
+      ---
+      duration_ms: 108.865714
+      ...
+    1..15
+ok 18 - collect() against the synthetic fixture
+  ---
+  duration_ms: 865.73852
+  type: 'suite'
+  ...
+# Subtest: git-evidence.mjs CLI
+    # Subtest: writes evidence.json with numbers matching collect()
+    ok 1 - writes evidence.json with numbers matching collect()
+      ---
+      duration_ms: 174.624717
+      ...
+    # Subtest: defaults --json to <repo>/proof/evidence.json when not given
+    ok 2 - defaults --json to <repo>/proof/evidence.json when not given
+      ---
+      duration_ms: 188.429633
+      ...
+    # Subtest: --print output never names the other contributor
+    ok 3 - --print output never names the other contributor
+      ---
+      duration_ms: 194.10492
+      ...
+    # Subtest: --since 2026-13-99 exits 2
+    ok 4 - --since 2026-13-99 exits 2
+      ---
+      duration_ms: 141.256584
+      ...
+    # Subtest: an unmatched --author exits 3
+    ok 5 - an unmatched --author exits 3
+      ---
+      duration_ms: 142.988845
+      ...
+    # Subtest: a shallow clone exits 4
+    ok 6 - a shallow clone exits 4
+      ---
+      duration_ms: 123.156336
+      ...
+    # Subtest: --discover lists every identity whose name or email contains the text, with commit counts
+    ok 7 - --discover lists every identity whose name or email contains the text, with commit counts
+      ---
+      duration_ms: 109.12988
+      ...
+    # Subtest: --author must be an exact email; a bare name is rejected with a clear message
+    ok 8 - --author must be an exact email; a bare name is rejected with a clear message
+      ---
+      duration_ms: 109.316253
+      ...
+    1..8
+ok 19 - git-evidence.mjs CLI
+  ---
+  duration_ms: 1183.65898
+  type: 'suite'
+  ...
+# Subtest: collect() against the design-role fixture (subject.role_family: design)
+    # Subtest: exact counts for a 4-commit design subject
+    ok 1 - exact counts for a 4-commit design subject
+      ---
+      duration_ms: 63.659264
+      ...
+    # Subtest: the docs rename is pinned the same way as the main fixture's
+    ok 2 - the docs rename is pinned the same way as the main fixture's
+      ---
+      duration_ms: 58.137133
+      ...
+    # Subtest: the other contributor never appears
+    ok 3 - the other contributor never appears
+      ---
+      duration_ms: 61.106092
+      ...
+    # Subtest: assets/logo.svg exists at HEAD and is a small, well-formed SVG
+    ok 4 - assets/logo.svg exists at HEAD and is a small, well-formed SVG
+      ---
+      duration_ms: 0.796983
+      ...
+    1..4
+ok 20 - collect() against the design-role fixture (subject.role_family: design)
+  ---
+  duration_ms: 184.088445
+  type: 'suite'
+  ...
+# Subtest: glob engine (in-house, dependency-free, exercised independent of the Node version running the suite)
+    # Subtest: contract table
+    ok 1 - contract table
+      ---
+      duration_ms: 0.497082
+      ...
+    # Subtest: matchesAnyGlob agrees with matchesGlob over the same table
+    ok 2 - matchesAnyGlob agrees with matchesGlob over the same table
+      ---
+      duration_ms: 0.210273
+      ...
+    # Subtest: a pathological run of `**` segments resolves in well under 100ms (DP, not backtracking)
+    ok 3 - a pathological run of `**` segments resolves in well under 100ms (DP, not backtracking)
+      ---
+      duration_ms: 2.099177
+      ...
+    # Subtest: nested braces and disallowed characters inside a group are left literal
+    ok 4 - nested braces and disallowed characters inside a group are left literal
+      ---
+      duration_ms: 0.238342
+      ...
+    1..4
+ok 21 - glob engine (in-house, dependency-free, exercised independent of the Node version running the suite)
+  ---
+  duration_ms: 3.242755
+  type: 'suite'
+  ...
+# Subtest: isSubject / asciiLower — exact, ASCII-only identity matching
+    # Subtest: "@" never matches (the old substring vulnerability that once matched all 71 contributors)
+    ok 1 - "@" never matches (the old substring vulnerability that once matched all 71 contributors)
+      ---
+      duration_ms: 0.193448
+      ...
+    # Subtest: a longer email containing an identity as a substring never matches
+    ok 2 - a longer email containing an identity as a substring never matches
+      ---
+      duration_ms: 0.08346
+      ...
+    # Subtest: a Kelvin-sign (U+212A) look-alike never matches its ASCII look-alike
+    ok 3 - a Kelvin-sign (U+212A) look-alike never matches its ASCII look-alike
+      ---
+      duration_ms: 0.161355
+      ...
+    # Subtest: plain ASCII case is still equal (RFC-conventional, not the confusable-folding risk)
+    ok 4 - plain ASCII case is still equal (RFC-conventional, not the confusable-folding risk)
+      ---
+      duration_ms: 0.07443
+      ...
+    1..4
+ok 22 - isSubject / asciiLower — exact, ASCII-only identity matching
+  ---
+  duration_ms: 0.64143
+  type: 'suite'
+  ...
+# Subtest: commitFacts()
+    # Subtest: exclusion-filtered stats differ sharply from the commit's raw shortstat
+    ok 1 - exclusion-filtered stats differ sharply from the commit's raw shortstat
+      ---
+      duration_ms: 14.112555
+      ...
+    # Subtest: a sha that does not resolve to a commit is simply absent, not thrown
+    ok 2 - a sha that does not resolve to a commit is simply absent, not thrown
+      ---
+      duration_ms: 9.590615
+      ...
+    1..2
+ok 23 - commitFacts()
+  ---
+  duration_ms: 23.821257
+  type: 'suite'
+  ...
+# Subtest: pathFacts()
+    # Subtest: ownership facts for a subject-only file vs. one the subject never touched
+    ok 1 - ownership facts for a subject-only file vs. one the subject never touched
+      ---
+      duration_ms: 24.989253
+      ...
+    1..1
+ok 24 - pathFacts()
+  ---
+  duration_ms: 25.118147
+  type: 'suite'
+  ...
+# Subtest: blamePaths option
+    # Subtest: blamePaths surfaces a file outside the subject's own churn (blameTop never sees it)
+    ok 1 - blamePaths surfaces a file outside the subject's own churn (blameTop never sees it)
+      ---
+      duration_ms: 65.815275
+      ...
+    # Subtest: blame attribution ignores a committed .mailmap that git blame itself applies
+    ok 2 - blame attribution ignores a committed .mailmap that git blame itself applies
+      ---
+      duration_ms: 52.090624
+      ...
+    1..2
+ok 25 - blamePaths option
+  ---
+  duration_ms: 118.125661
+  type: 'suite'
+  ...
+# Subtest: readLogoSvg()
+    # Subtest: refuses a symlink entry even though it points at a real .svg
+    ok 1 - refuses a symlink entry even though it points at a real .svg
+      ---
+      duration_ms: 3.603791
+      ...
+    # Subtest: refuses a .. path and reads a real one
+    ok 2 - refuses a .. path and reads a real one
+      ---
+      duration_ms: 8.044286
+      ...
+    1..2
+ok 26 - readLogoSvg()
+  ---
+  duration_ms: 31.474024
+  type: 'suite'
+  ...
+# Subtest: repo.remote strips userinfo
+    # Subtest: a credentialed https remote is stripped; an scp-style remote is left alone
+    ok 1 - a credentialed https remote is stripped; an scp-style remote is left alone
+      ---
+      duration_ms: 79.226834
+      ...
+    1..1
+ok 27 - repo.remote strips userinfo
+  ---
+  duration_ms: 79.391375
+  type: 'suite'
+  ...
+# Subtest: rev resolution
+    # Subtest: a rev that does not resolve throws EvidenceError code 5
+    ok 1 - a rev that does not resolve throws EvidenceError code 5
+      ---
+      duration_ms: 8.040471
+      ...
+    # Subtest: --rev reaches a commit that exists on no branch (refs/pull/1/head)
+    ok 2 - --rev reaches a commit that exists on no branch (refs/pull/1/head)
+      ---
+      duration_ms: 45.087575
+      ...
+    1..2
+ok 28 - rev resolution
+  ---
+  duration_ms: 53.488676
+  type: 'suite'
+  ...
+# Subtest: hostile environment
+    # Subtest: repo-local config, an untracked mailmap/gitattributes, and adversarial env vars change nothing
+    ok 1 - repo-local config, an untracked mailmap/gitattributes, and adversarial env vars change nothing
+      ---
+      duration_ms: 140.29492
+      ...
+    1..1
+ok 29 - hostile environment
+  ---
+  duration_ms: 140.422089
+  type: 'suite'
+  ...
+# Subtest: bare vs worktree parity
+    # Subtest: collect() on the fixture and on its --bare-out clone agree except repo.name/repo.remote
+    ok 1 - collect() on the fixture and on its --bare-out clone agree except repo.name/repo.remote
+      ---
+      duration_ms: 159.444645
+      ...
+    1..1
+ok 30 - bare vs worktree parity
+  ---
+  duration_ms: 159.593892
+  type: 'suite'
+  ...
+# Signing file /tmp/proof-identity-test-3iR0AV/verify-ok-O6ZLJE/proof.json
+# Write signature to /tmp/proof-identity-test-3iR0AV/verify-ok-O6ZLJE/proof.json.sig
+# Signing file /tmp/proof-identity-test-3iR0AV/verify-tampered-9yHXjx/proof.json
+# Write signature to /tmp/proof-identity-test-3iR0AV/verify-tampered-9yHXjx/proof.json.sig
+# Signing file /tmp/proof-identity-test-3iR0AV/verify-wrongkey-pWVqof/proof.json
+# Write signature to /tmp/proof-identity-test-3iR0AV/verify-wrongkey-pWVqof/proof.json.sig
+# Signing file /tmp/proof-identity-test-3iR0AV/verify-noenoent-qwocnG/proof.json
+# Write signature to /tmp/proof-identity-test-3iR0AV/verify-noenoent-qwocnG/proof.json.sig
+# Signing file /tmp/proof-identity-test-3iR0AV/bind-bound-5FqzZG/proof.json
+# Write signature to /tmp/proof-identity-test-3iR0AV/bind-bound-5FqzZG/proof.json.sig
+# Signing file /tmp/proof-identity-test-3iR0AV/bind-emailconflict-N6KOiD/proof.json
+# Write signature to /tmp/proof-identity-test-3iR0AV/bind-emailconflict-N6KOiD/proof.json.sig
+# Signing file /tmp/proof-identity-test-3iR0AV/bind-emailunbound-bOFWnZ/proof.json
+# Write signature to /tmp/proof-identity-test-3iR0AV/bind-emailunbound-bOFWnZ/proof.json.sig
+# Signing file /tmp/proof-identity-test-3iR0AV/bind-badsig-yhHEIx/proof.json
+# Write signature to /tmp/proof-identity-test-3iR0AV/bind-badsig-yhHEIx/proof.json.sig
+# Signing file /tmp/proof-identity-test-3iR0AV/bind-noenoent-fgjUV2/proof.json
+# Write signature to /tmp/proof-identity-test-3iR0AV/bind-noenoent-fgjUV2/proof.json.sig
+# Signing file /tmp/proof-identity-test-3iR0AV/cli-ok-s2l99a/proof.json
+# Write signature to /tmp/proof-identity-test-3iR0AV/cli-ok-s2l99a/proof.json.sig
+# error: no local key matches a public key published on github.com/ada.
+# Its published keys:
+#   256 SHA256:DJ+2MjWtNM6USIyAl+LCcpCToDM10yINfCh1Q1q7UhQ no comment (ED25519)
+# Add one of your local public keys to github.com/ada, or pass --key <path>.
+# error: --account host must be one of github.com, gitlab.com, codeberg.org, got: evil.example.com
+# Subtest: verifySignature
+    # Subtest: a signature over the exact bytes verifies against the signer's own key
+    ok 1 - a signature over the exact bytes verifies against the signer's own key
+      ---
+      duration_ms: 21.918081
+      ...
+    # Subtest: changing the bytes after signing invalidates the signature
+    ok 2 - changing the bytes after signing invalidates the signature
+      ---
+      duration_ms: 12.895117
+      ...
+    # Subtest: a signature made by a different key does not verify against this one
+    ok 3 - a signature made by a different key does not verify against this one
+      ---
+      duration_ms: 13.283427
+      ...
+    # Subtest: ssh-keygen missing from PATH throws IdentityError instead of reporting invalid
+    ok 4 - ssh-keygen missing from PATH throws IdentityError instead of reporting invalid
+      ---
+      duration_ms: 8.05751
+      ...
+    1..4
+ok 31 - verifySignature
+  ---
+  duration_ms: 56.863102
+  type: 'suite'
+  ...
+# Subtest: fetchAccountKeys
+    # Subtest: a keys file with comments and blank lines is parsed, ignoring both
+    ok 1 - a keys file with comments and blank lines is parsed, ignoring both
+      ---
+      duration_ms: 1.736623
+      ...
+    # Subtest: an unsupported key type in a keys file is skipped, not fatal
+    ok 2 - an unsupported key type in a keys file is skipped, not fatal
+      ---
+      duration_ms: 0.447029
+      ...
+    # Subtest: refuses a host that is not on the allowlist
+    ok 3 - refuses a host that is not on the allowlist
+      ---
+      duration_ms: 0.571605
+      ...
+    # Subtest: refuses a login that does not match the schema's own pattern
+    ok 4 - refuses a login that does not match the schema's own pattern
+      ---
+      duration_ms: 0.340005
+      ...
+    # Subtest: ALLOWED_KEY_HOSTS matches the three forges this skill knows how to bind
+    ok 5 - ALLOWED_KEY_HOSTS matches the three forges this skill knows how to bind
+      ---
+      duration_ms: 0.183571
+      ...
+    # Subtest: uses an injected fetchImpl and requests exactly https://github.com/ada.keys
+    ok 6 - uses an injected fetchImpl and requests exactly https://github.com/ada.keys
+      ---
+      duration_ms: 0.658022
+      ...
+    # Subtest: a non-ok HTTP response is rejected rather than treated as zero keys
+    ok 7 - a non-ok HTTP response is rejected rather than treated as zero keys
+      ---
+      duration_ms: 0.412338
+      ...
+    # Subtest: a network failure from fetchImpl is wrapped, not swallowed
+    ok 8 - a network failure from fetchImpl is wrapped, not swallowed
+      ---
+      duration_ms: 0.245715
+      ...
+    1..8
+ok 32 - fetchAccountKeys
+  ---
+  duration_ms: 5.011104
+  type: 'suite'
+  ...
+# Subtest: bindEmails
+    # Subtest: a GitHub noreply email bound to the matching account login
+    ok 1 - a GitHub noreply email bound to the matching account login
+      ---
+      duration_ms: 0.468455
+      ...
+    # Subtest: a GitLab noreply email bound to the matching account login
+    ok 2 - a GitLab noreply email bound to the matching account login
+      ---
+      duration_ms: 0.192718
+      ...
+    # Subtest: ordinary ASCII case differences still bind (only look-alikes must not)
+    ok 3 - ordinary ASCII case differences still bind (only look-alikes must not)
+      ---
+      duration_ms: 0.176978
+      ...
+    # Subtest: a noreply email naming a different login is a conflict
+    ok 4 - a noreply email naming a different login is a conflict
+      ---
+      duration_ms: 0.137066
+      ...
+    # Subtest: a Kelvin-sign look-alike login never binds, even though String\#toLowerCase() would fold it
+    ok 5 - a Kelvin-sign look-alike login never binds, even though String\#toLowerCase() would fold it
+      ---
+      duration_ms: 0.331772
+      ...
+    # Subtest: non-noreply email resolved via lookupLogin: equal login binds
+    ok 6 - non-noreply email resolved via lookupLogin: equal login binds
+      ---
+      duration_ms: 0.190625
+      ...
+    # Subtest: non-noreply email resolved via lookupLogin: different login conflicts
+    ok 7 - non-noreply email resolved via lookupLogin: different login conflicts
+      ---
+      duration_ms: 0.133167
+      ...
+    # Subtest: non-noreply email resolved via lookupLogin: null result is unbound, not conflict
+    ok 8 - non-noreply email resolved via lookupLogin: null result is unbound, not conflict
+      ---
+      duration_ms: 0.127334
+      ...
+    # Subtest: non-noreply email resolved via lookupLogin: a throw is unbound, not fatal
+    ok 9 - non-noreply email resolved via lookupLogin: a throw is unbound, not fatal
+      ---
+      duration_ms: 0.150811
+      ...
+    # Subtest: without lookupLogin, a non-noreply email is unbound/unknown
+    ok 10 - without lookupLogin, a non-noreply email is unbound/unknown
+      ---
+      duration_ms: 0.175363
+      ...
+    # Subtest: with no account at all, every email is unbound/unknown and lookupLogin is never called
+    ok 11 - with no account at all, every email is unbound/unknown and lookupLogin is never called
+      ---
+      duration_ms: 1.646053
+      ...
+    1..11
+ok 33 - bindEmails
+  ---
+  duration_ms: 4.263359
+  type: 'suite'
+  ...
+# Subtest: bindIdentity
+    # Subtest: no account at all -> unbound, signature absent, emails still computed
+    ok 1 - no account at all -> unbound, signature absent, emails still computed
+      ---
+      duration_ms: 0.494067
+      ...
+    # Subtest: account present but no signature file -> unbound, signature absent
+    ok 2 - account present but no signature file -> unbound, signature absent
+      ---
+      duration_ms: 0.402628
+      ...
+    # Subtest: a key-fetch network failure is swallowed into unbound/absent, with a note
+    ok 3 - a key-fetch network failure is swallowed into unbound/absent, with a note
+      ---
+      duration_ms: 0.678668
+      ...
+    # Subtest: valid signature and every email bound -> status bound, signature valid
+    ok 4 - valid signature and every email bound -> status bound, signature valid
+      ---
+      duration_ms: 13.574801
+      ...
+    # Subtest: valid signature but one email conflicts -> status conflict, signature stays valid
+    ok 5 - valid signature but one email conflicts -> status conflict, signature stays valid
+      ---
+      duration_ms: 12.951734
+      ...
+    # Subtest: valid signature but an email cannot be bound -> status unbound, signature stays valid
+    ok 6 - valid signature but an email cannot be bound -> status unbound, signature stays valid
+      ---
+      duration_ms: 12.082098
+      ...
+    # Subtest: a signature that fails to verify -> status conflict, signature invalid
+    ok 7 - a signature that fails to verify -> status conflict, signature invalid
+      ---
+      duration_ms: 12.418296
+      ...
+    # Subtest: ssh-keygen missing propagates out of bindIdentity instead of being reported as a proof fact
+    ok 8 - ssh-keygen missing propagates out of bindIdentity instead of being reported as a proof fact
+      ---
+      duration_ms: 7.761809
+      ...
+    1..8
+ok 34 - bindIdentity
+  ---
+  duration_ms: 60.756476
+  type: 'suite'
+  ...
+# Subtest: sign-proof.mjs (CLI, end to end)
+    # Subtest: signs with --key <private> and --keys-file, exits 0, and the .sig verifies
+    ok 1 - signs with --key <private> and --keys-file, exits 0, and the .sig verifies
+      ---
+      duration_ms: 138.046002
+      ...
+    # Subtest: a --key not published on the account exits 1 with the account's fingerprints
+    ok 2 - a --key not published on the account exits 1 with the account's fingerprints
+      ---
+      duration_ms: 178.973875
+      ...
+    # Subtest: --help exits 0 and documents --account, --key, and --keys-file
+    ok 3 - --help exits 0 and documents --account, --key, and --keys-file
+      ---
+      duration_ms: 124.816523
+      ...
+    # Subtest: an unsupported --account host is rejected before any key is touched
+    ok 4 - an unsupported --account host is rejected before any key is touched
+      ---
+      duration_ms: 120.868356
+      ...
+    1..4
+ok 35 - sign-proof.mjs (CLI, end to end)
+  ---
+  duration_ms: 562.983822
+  type: 'suite'
+  ...
+# Subtest: LOGIN_RE (shared with schema/proof.schema.json)
+    # Subtest: accepts a typical forge login and rejects the schema's own known-bad cases
+    ok 1 - accepts a typical forge login and rejects the schema's own known-bad cases
+      ---
+      duration_ms: 0.22461
+      ...
+    1..1
+ok 36 - LOGIN_RE (shared with schema/proof.schema.json)
+  ---
+  duration_ms: 0.37404
+  type: 'suite'
+  ...
+# Subtest: readNumbers: a comma-grouped number stops before an attached word
+ok 37 - readNumbers: a comma-grouped number stops before an attached word
+  ---
+  duration_ms: 2.740522
+  ...
+# Subtest: readNumbers: two bare numbers separated by a word
+ok 38 - readNumbers: two bare numbers separated by a word
+  ---
+  duration_ms: 0.461592
+  ...
+# Subtest: readNumbers: a size unit reads the same with or without a space
+ok 39 - readNumbers: a size unit reads the same with or without a space
+  ---
+  duration_ms: 0.372265
+  ...
+# Subtest: readNumbers: identifiers starting with a letter are never quantities
+ok 40 - readNumbers: identifiers starting with a letter are never quantities
+  ---
+  duration_ms: 0.267891
+  ...
+# Subtest: readNumbers: 2D/3D skipped case-insensitively, standalone or compounded
+ok 41 - readNumbers: 2D/3D skipped case-insensitively, standalone or compounded
+  ---
+  duration_ms: 0.145338
+  ...
+# Subtest: readNumbers: a parenthesised PR reference reads with unit \#
+ok 42 - readNumbers: a parenthesised PR reference reads with unit \#
+  ---
+  duration_ms: 0.180897
+  ...
+# Subtest: readNumbers: a percent token
+ok 43 - readNumbers: a percent token
+  ---
+  duration_ms: 0.156784
+  ...
+# Subtest: readNumbers: a version triple is skipped
+ok 44 - readNumbers: a version triple is skipped
+  ---
+  duration_ms: 0.12979
+  ...
+# Subtest: readNumbers: an ISO calendar date is skipped
+ok 45 - readNumbers: an ISO calendar date is skipped
+  ---
+  duration_ms: 0.156977
+  ...
+# Subtest: readNumbers: multiplier, frame-rate, and duration units read
+ok 46 - readNumbers: multiplier, frame-rate, and duration units read
+  ---
+  duration_ms: 0.273099
+  ...
+# Subtest: readNumbers: a full 40-char SHA starting with a digit is skipped
+ok 47 - readNumbers: a full 40-char SHA starting with a digit is skipped
+  ---
+  duration_ms: 0.18852
+  ...
+# Subtest: readNumbers: a short hex abbreviation containing a letter is skipped
+ok 48 - readNumbers: a short hex abbreviation containing a letter is skipped
+  ---
+  duration_ms: 0.249829
+  ...
+# Subtest: readNumbers: a plain 7-digit count with no hex letters is not mistaken for a SHA
+ok 49 - readNumbers: a plain 7-digit count with no hex letters is not mistaken for a SHA
+  ---
+  duration_ms: 0.191021
+  ...
+# Subtest: readNumbers: a clock time is skipped
+ok 50 - readNumbers: a clock time is skipped
+  ---
+  duration_ms: 0.19156
+  ...
+# Subtest: readNumbers: a thousand-grouped size stays one token
+ok 51 - readNumbers: a thousand-grouped size stays one token
+  ---
+  duration_ms: 0.224955
+  ...
+# Subtest: readNumbers: k and % do not swallow the next word
+ok 52 - readNumbers: k and % do not swallow the next word
+  ---
+  duration_ms: 0.276771
+  ...
+# Subtest: countWords: whole-word, case-insensitive, with values
+ok 53 - countWords: whole-word, case-insensitive, with values
+  ---
+  duration_ms: 0.856624
+  ...
+# Subtest: countWords: does not match inside a larger word
+ok 54 - countWords: does not match inside a larger word
+  ---
+  duration_ms: 0.39175
+  ...
+# Subtest: missingNumbers: comma grouping and unit spacing normalize away
+ok 55 - missingNumbers: comma grouping and unit spacing normalize away
+  ---
+  duration_ms: 0.337629
+  ...
+# Subtest: missingNumbers: a number absent from every source is reported
+ok 56 - missingNumbers: a number absent from every source is reported
+  ---
+  duration_ms: 0.246159
+  ...
+# Subtest: classifyNumbers: a measure whose token and re-derived value match is rederived
+ok 57 - classifyNumbers: a measure whose token and re-derived value match is rederived
+  ---
+  duration_ms: 0.409779
+  ...
+# Subtest: classifyNumbers: a percent token compares round(100 x share)
+ok 58 - classifyNumbers: a percent token compares round(100 x share)
+  ---
+  duration_ms: 0.196556
+  ...
+# Subtest: classifyNumbers: an unmatched measure is flagged measure_unused
+ok 59 - classifyNumbers: an unmatched measure is flagged measure_unused
+  ---
+  duration_ms: 0.107915
+  ...
+# Subtest: classifyNumbers: a diff-stat word next to a matching count is rederived
+ok 60 - classifyNumbers: a diff-stat word next to a matching count is rederived
+  ---
+  duration_ms: 0.261385
+  ...
+# Subtest: classifyNumbers: a range's commit count and a PR number are rederived
+ok 61 - classifyNumbers: a range's commit count and a PR number are rederived
+  ---
+  duration_ms: 0.13979
+  ...
+# Subtest: classifyNumbers: a number only in a cited commit's subject is self_reported
+ok 62 - classifyNumbers: a number only in a cited commit's subject is self_reported
+  ---
+  duration_ms: 0.263941
+  ...
+# Subtest: classifyNumbers: a number only in a commit BODY (never the subject) is unbacked
+ok 63 - classifyNumbers: a number only in a commit BODY (never the subject) is unbacked
+  ---
+  duration_ms: 0.133347
+  ...
+# Subtest: a count word inside an identifier is a name, not a count
+ok 64 - a count word inside an identifier is a name, not a count
+  ---
+  duration_ms: 0.15527
+  ...
+# Subtest: rendering the same document twice is byte-identical
+ok 65 - rendering the same document twice is byte-identical
+  ---
+  duration_ms: 6.293767
+  ...
+# Subtest: the headline and every stack name appear verbatim in both renders
+ok 66 - the headline and every stack name appear verbatim in both renders
+  ---
+  duration_ms: 0.667454
+  ...
+# Subtest: every evidence id cited in a skill bullet has an html anchor and a register row
+ok 67 - every evidence id cited in a skill bullet has an html anchor and a register row
+  ---
+  duration_ms: 0.687721
+  ...
+# Subtest: html has no script, no dark-mode override, no stray http (redacted example), and print styles
+ok 68 - html has no script, no dark-mode override, no stray http (redacted example), and print styles
+  ---
+  duration_ms: 0.408445
+  ...
+# Subtest: a 0.1.2 document renders without throwing and keeps its headline and stack gloss verbatim
+ok 69 - a 0.1.2 document renders without throwing and keeps its headline and stack gloss verbatim
+  ---
+  duration_ms: 1.061693
+  ...
+# Subtest: a non-redacted document with a known forge yields commit/blob/pull links, never for metric evidence
+ok 70 - a non-redacted document with a known forge yields commit/blob/pull links, never for metric evidence
+  ---
+  duration_ms: 1.044162
+  ...
+# Subtest: forgeBase normalizes the three git remote shapes and rejects garbage
+ok 71 - forgeBase normalizes the three git remote shapes and rejects garbage
+  ---
+  duration_ms: 1.195601
+  ...
+# Subtest: bar renders Math.floor(score * 10) filled blocks out of 10
+ok 72 - bar renders Math.floor(score * 10) filled blocks out of 10
+  ---
+  duration_ms: 0.228391
+  ...
+# Subtest: levelLabel maps every schema level to its evidence-strength phrase
+ok 73 - levelLabel maps every schema level to its evidence-strength phrase
+  ---
+  duration_ms: 0.363279
+  ...
+# Subtest: humanizeSpan renders the days/months/years thresholds
+ok 74 - humanizeSpan renders the days/months/years thresholds
+  ---
+  duration_ms: 0.285287
+  ...
+# Subtest: monthName renders a YYYY-MM key as a full month name and year
+ok 75 - monthName renders a YYYY-MM key as a full month name and year
+  ---
+  duration_ms: 0.14107
+  ...
+# Subtest: the CLI writes both proof.md and proof.html to --out by default
+ok 76 - the CLI writes both proof.md and proof.html to --out by default
+  ---
+  duration_ms: 112.288316
+  ...
+# Subtest: --stdout --md prints exactly the markdown render
+ok 77 - --stdout --md prints exactly the markdown render
+  ---
+  duration_ms: 115.353914
+  ...
+# Subtest: --stdout without --md/--html, or with both, is a usage error
+ok 78 - --stdout without --md/--html, or with both, is a usage error
+  ---
+  duration_ms: 297.922594
+  ...
+# Subtest: a candidate render of a non-redacted document carries no seal and no Verification section
+ok 79 - a candidate render of a non-redacted document carries no seal and no Verification section
+  ---
+  duration_ms: 0.724336
+  ...
+# Subtest: the markdown and HTML trust-note sentences are identical modulo markup, with the scope-honesty sentences unchanged word for word
+ok 80 - the markdown and HTML trust-note sentences are identical modulo markup, with the scope-honesty sentences unchanged word for word
+  ---
+  duration_ms: 1.160588
+  ...
+# Subtest: the masthead carries each outcome's plain word
+ok 81 - the masthead carries each outcome's plain word
+  ---
+  duration_ms: 2.61972
+  ...
+# Subtest: the seal and 'Verified by' render only for reproduced + bound identity
+ok 82 - the seal and 'Verified by' render only for reproduced + bound identity
+  ---
+  duration_ms: 1.835374
+  ...
+# Subtest: each claim shows a verdict word and glyph, and a mechanical problem forces unsupported regardless of the audit verdict
+ok 83 - each claim shows a verdict word and glyph, and a mechanical problem forces unsupported regardless of the audit verdict
+  ---
+  duration_ms: 0.707282
+  ...
+# Subtest: claim register rows carry id="cN" for the :target highlight
+ok 84 - claim register rows carry id="cN" for the :target highlight
+  ---
+  duration_ms: 0.472138
+  ...
+# Subtest: the evidence register shows status and each number's class and source
+ok 85 - the evidence register shows status and each number's class and source
+  ---
+  duration_ms: 1.800523
+  ...
+# Subtest: a self-reported number names its commit subject, and active days count the span's calendar days
+ok 86 - a self-reported number names its commit subject, and active days count the span's calendar days
+  ---
+  duration_ms: 0.631574
+  ...
+# Subtest: the Verification section renders identity, counts, and signals, and appears only for a recipient
+ok 87 - the Verification section renders identity, counts, and signals, and appears only for a recipient
+  ---
+  duration_ms: 0.890377
+  ...
+# Subtest: an Interview questions section lists each claim's audit question, only for a recipient
+ok 88 - an Interview questions section lists each claim's audit question, only for a recipient
+  ---
+  duration_ms: 0.79497
+  ...
+# Subtest: the logo is always an <img> data URI, never inline <svg> from the candidate
+ok 89 - the logo is always an <img> data URI, never inline <svg> from the candidate
+  ---
+  duration_ms: 0.506978
+  ...
+# Subtest: the CSP meta tag is present
+ok 90 - the CSP meta tag is present
+  ---
+  duration_ms: 0.295589
+  ...
+# Subtest: hostile candidate strings are escaped: no raw tag breakout, hidden characters shown visibly
+ok 91 - hostile candidate strings are escaped: no raw tag breakout, hidden characters shown visibly
+  ---
+  duration_ms: 2.359111
+  ...
+# Subtest: a recipient render of the redacted shipped example has no script, no dark-mode override, no stray url, and print styles
+ok 92 - a recipient render of the redacted shipped example has no script, no dark-mode override, no stray url, and print styles
+  ---
+  duration_ms: 0.4406
+  ...
+# Subtest: the set of hex colours in the shared stylesheet is identical between candidate and recipient renders
+ok 93 - the set of hex colours in the shared stylesheet is identical between candidate and recipient renders
+  ---
+  duration_ms: 1.593627
+  ...
+# Subtest: --verification writes verified.md/verified.html and never touches proof.md/proof.html
+ok 94 - --verification writes verified.md/verified.html and never touches proof.md/proof.html
+  ---
+  duration_ms: 255.092999
+  ...
+# Subtest: the CLI reads the logo from the committed tree at head_sha: a real SVG embeds as an inert image, a symlink or an uncommitted file never does
+ok 95 - the CLI reads the logo from the committed tree at head_sha: a real SVG embeds as an inert image, a symlink or an uncommitted file never does
+  ---
+  duration_ms: 376.026576
+  ...
+# Subtest: the shipped example is a valid 0.3.0 document with zero findings
+ok 96 - the shipped example is a valid 0.3.0 document with zero findings
+  ---
+  duration_ms: 2.941878
+  ...
+# Subtest: currentVersion reads the schema's declared default
+ok 97 - currentVersion reads the schema's declared default
+  ---
+  duration_ms: 0.15726
+  ...
+# Subtest: acceptedVersion accepts only 0.3.x
+ok 98 - acceptedVersion accepts only 0.3.x
+  ---
+  duration_ms: 0.191606
+  ...
+# Subtest: the verification example is valid and bound to the exact bytes of the proof example
+ok 99 - the verification example is valid and bound to the exact bytes of the proof example
+  ---
+  duration_ms: 2.655622
+  ...
+# Subtest: identities must be exact ASCII emails: substrings, handles, and look-alikes are rejected
+ok 100 - identities must be exact ASCII emails: substrings, handles, and look-alikes are rejected
+  ---
+  duration_ms: 2.259679
+  ...
+# Subtest: the removed self-attestation field is rejected
+ok 101 - the removed self-attestation field is rejected
+  ---
+  duration_ms: 0.681784
+  ...
+# Subtest: a remote carrying credentials is rejected
+ok 102 - a remote carrying credentials is rejected
+  ---
+  duration_ms: 0.539192
+  ...
+# Subtest: maxItems caps the number of claims
+ok 103 - maxItems caps the number of claims
+  ---
+  duration_ms: 2.199796
+  ...
+# Subtest: missing required property is reported at its own path
+ok 104 - missing required property is reported at its own path
+  ---
+  duration_ms: 0.481186
+  ...
+# Subtest: additionalProperties: false is enforced at the top level
+ok 105 - additionalProperties: false is enforced at the top level
+  ---
+  duration_ms: 0.481835
+  ...
+# Subtest: additionalProperties: false is enforced on a nested object
+ok 106 - additionalProperties: false is enforced on a nested object
+  ---
+  duration_ms: 0.409538
+  ...
+# Subtest: wrong type is reported at the offending path
+ok 107 - wrong type is reported at the offending path
+  ---
+  duration_ms: 0.367581
+  ...
+# Subtest: a type array including null accepts null and rejects other mismatched types
+ok 108 - a type array including null accepts null and rejects other mismatched types
+  ---
+  duration_ms: 0.53378
+  ...
+# Subtest: enum miss is reported at the offending path
+ok 109 - enum miss is reported at the offending path
+  ---
+  duration_ms: 0.48742
+  ...
+# Subtest: pattern miss on proof_version is reported
+ok 110 - pattern miss on proof_version is reported
+  ---
+  duration_ms: 0.332036
+  ...
+# Subtest: minItems violation on gaps is reported
+ok 111 - minItems violation on gaps is reported
+  ---
+  duration_ms: 1.323741
+  ...
+# Subtest: minLength violation is reported
+ok 112 - minLength violation is reported
+  ---
+  duration_ms: 0.416965
+  ...
+# Subtest: maxLength violation on claims[].short is reported
+ok 113 - maxLength violation on claims[].short is reported
+  ---
+  duration_ms: 1.531552
+  ...
+# Subtest: minimum violation on confidence is reported
+ok 114 - minimum violation on confidence is reported
+  ---
+  duration_ms: 0.509324
+  ...
+# Subtest: maximum violation on confidence is reported
+ok 115 - maximum violation on confidence is reported
+  ---
+  duration_ms: 2.165396
+  ...
+# Subtest: format: date rejects a calendar-invalid date
+ok 116 - format: date rejects a calendar-invalid date
+  ---
+  duration_ms: 0.417184
+  ...
+# Subtest: format: date-time rejects a non-RFC-3339 string
+ok 117 - format: date-time rejects a non-RFC-3339 string
+  ---
+  duration_ms: 0.34
+  ...
+# Subtest: no source, schema, reference, or doc file contains a raw invisible or confusable character
+ok 118 - no source, schema, reference, or doc file contains a raw invisible or confusable character
+  ---
+  duration_ms: 48.906652
+  ...
+# Subtest: the shipped example passes without --git
+ok 119 - the shipped example passes without --git
+  ---
+  duration_ms: 205.820205
+  ...
+# Subtest: a candidate-side verification claim is rejected by the schema
+ok 120 - a candidate-side verification claim is rejected by the schema
+  ---
+  duration_ms: 132.607919
+  ...
+# Subtest: claims, evidence, skills given as objects fail at the schema
+ok 121 - claims, evidence, skills given as objects fail at the schema
+  ---
+  duration_ms: 344.671918
+  ...
+# Subtest: an empty gaps list fails
+ok 122 - an empty gaps list fails
+  ---
+  duration_ms: 106.523379
+  ...
+# Subtest: an unknown top-level key fails
+ok 123 - an unknown top-level key fails
+  ---
+  duration_ms: 133.328787
+  ...
+# Subtest: a claim with one commit reference above 0.6 fails; 0.6 passes
+ok 124 - a claim with one commit reference above 0.6 fails; 0.6 passes
+  ---
+  duration_ms: 240.305919
+  ...
+# Subtest: a skill level outside its score band fails
+ok 125 - a skill level outside its score band fails
+  ---
+  duration_ms: 113.014536
+  ...
+# Subtest: monthly activity that does not sum to authored_commits fails
+ok 126 - monthly activity that does not sum to authored_commits fails
+  ---
+  duration_ms: 117.496699
+  ...
+# Subtest: a recent window larger than the total fails
+ok 127 - a recent window larger than the total fails
+  ---
+  duration_ms: 119.151775
+  ...
+# Subtest: a span off by one day fails
+ok 128 - a span off by one day fails
+  ---
+  duration_ms: 124.008325
+  ...
+# Subtest: the AI share must equal the trailer count over the total
+ok 129 - the AI share must equal the trailer count over the total
+  ---
+  duration_ms: 141.981786
+  ...
+# Subtest: redacted documents may not carry a repository or project name
+ok 130 - redacted documents may not carry a repository or project name
+  ---
+  duration_ms: 247.36949
+  ...
+# Subtest: a noreply identity that names a different account than subject.account fails
+ok 131 - a noreply identity that names a different account than subject.account fails
+  ---
+  duration_ms: 268.243201
+  ...
+# Subtest: code-like text and foreign emails in narrative fields fail
+ok 132 - code-like text and foreign emails in narrative fields fail
+  ---
+  duration_ms: 243.58889
+  ...
+# Subtest: a design-role document validates with design vocabulary and non-code evidence
+ok 133 - a design-role document validates with design vocabulary and non-code evidence
+  ---
+  duration_ms: 130.80646
+  ...
+# Subtest: a claim category outside the enum fails
+ok 134 - a claim category outside the enum fails
+  ---
+  duration_ms: 137.342411
+  ...
+# Subtest: --git passes on a document derived from the fixture
+ok 135 - --git passes on a document derived from the fixture
+  ---
+  duration_ms: 225.898708
+  ...
+# Subtest: --git rejects a commit by another contributor
+ok 136 - --git rejects a commit by another contributor
+  ---
+  duration_ms: 248.922362
+  ...
+# Subtest: --git rejects a path absent at head_sha and a path the subject never touched
+ok 137 - --git rejects a path absent at head_sha and a path the subject never touched
+  ---
+  duration_ms: 410.451165
+  ...
+# Subtest: --git rejects an unknown pull request and a commit outside head_sha's history
+ok 138 - --git rejects an unknown pull request and a commit outside head_sha's history
+  ---
+  duration_ms: 440.461233
+  ...
+# Subtest: --git rejects a summary that does not re-derive
+ok 139 - --git rejects a summary that does not re-derive
+  ---
+  duration_ms: 222.514646
+  ...
+# Subtest: --git rejects another contributor's name in the narrative
+ok 140 - --git rejects another contributor's name in the narrative
+  ---
+  duration_ms: 205.380581
+  ...
+# Subtest: --rendered passes on fresh output and fails after one edited byte
+ok 141 - --rendered passes on fresh output and fails after one edited byte
+  ---
+  duration_ms: 538.322865
+  ...
+# Subtest: reproduced: a valid proof against a file:// remote, then --finalize renders and removes the clone
+ok 142 - reproduced: a valid proof against a file:// remote, then --finalize renders and removes the clone
+  ---
+  duration_ms: 509.099748
+  ...
+# Subtest: contradicted: a tampered summary number (lines_added + 1) does not re-derive
+ok 143 - contradicted: a tampered summary number (lines_added + 1) does not re-derive
+  ---
+  duration_ms: 267.744546
+  ...
+# Subtest: contradicted: an unbacked evidence number ('k of n' in the reason)
+ok 144 - contradicted: an unbacked evidence number ('k of n' in the reason)
+  ---
+  duration_ms: 243.85974
+  ...
+# Subtest: not_reproducible: a redacted proof is never fetched
+ok 145 - not_reproducible: a redacted proof is never fetched
+  ---
+  duration_ms: 135.084324
+  ...
+# Subtest: not_reproducible: a file:// remote without --allow-file-remote
+ok 146 - not_reproducible: a file:// remote without --allow-file-remote
+  ---
+  duration_ms: 134.290675
+  ...
+# Subtest: not_reproducible: a head_sha reachable from no fetched branch or tag (refs/pull/*)
+ok 147 - not_reproducible: a head_sha reachable from no fetched branch or tag (refs/pull/*)
+  ---
+  duration_ms: 509.307338
+  ...
+# Subtest: finalize refuses when proof.json changed after the first pass
+ok 148 - finalize refuses when proof.json changed after the first pass
+  ---
+  duration_ms: 388.821389
+  ...
+# Subtest: finalize recomputes the outcome rather than trusting a hand-edited verification.json
+ok 149 - finalize recomputes the outcome rather than trusting a hand-edited verification.json
+  ---
+  duration_ms: 521.126877
+  ...
+# Subtest: finalize refuses when a claim has no audit
+ok 150 - finalize refuses when a claim has no audit
+  ---
+  duration_ms: 416.561773
+  ...
+# Subtest: a disallowed host is refused with remote_not_allowed
+ok 151 - a disallowed host is refused with remote_not_allowed
+  ---
+  duration_ms: 137.409237
+  ...
+# Subtest: an ext:: transport and a remote starting with '-' are both refused before any fetch is attempted
+ok 152 - an ext:: transport and a remote starting with '-' are both refused before any fetch is attempted
+  ---
+  duration_ms: 272.47978
+  ...
+# Subtest: a proof_version outside 0.3.x is refused before anything is written
+ok 153 - a proof_version outside 0.3.x is refused before anything is written
+  ---
+  duration_ms: 118.364066
+  ...
+# Subtest: a signed proof binds, --finalize with the same flags renders the seal, and an edit after signing is a conflict
+ok 154 - a signed proof binds, --finalize with the same flags renders the seal, and an edit after signing is a conflict
+  ---
+  duration_ms: 761.530792
+  ...
+# Subtest: the audit pack holds a cited directory and a file inside it
+ok 155 - the audit pack holds a cited directory and a file inside it
+  ---
+  duration_ms: 260.397637
+  ...
+# Subtest: a commit ref shaped like a git option never reaches git as an option
+ok 156 - a commit ref shaped like a git option never reaches git as an option
+  ---
+  duration_ms: 180.94763
+  ...
+# Subtest: inconclusive only when diff-derived counts drift under a recorded, different git version
+ok 157 - inconclusive only when diff-derived counts drift under a recorded, different git version
+  ---
+  duration_ms: 480.965358
+  ...
+# Subtest: --finalize re-fetches with --prune, so a ref added to the kept clone cannot change the outcome
+ok 158 - --finalize re-fetches with --prune, so a ref added to the kept clone cannot change the outcome
+  ---
+  duration_ms: 663.66499
+  ...
+# Subtest: text addressed to an AI, or hidden in tag characters, is flagged on the claim and escaped in the pack
+ok 159 - text addressed to an AI, or hidden in tag characters, is flagged on the claim and escaped in the pack
+  ---
+  duration_ms: 245.915425
+  ...
+1..159
+# tests 223
+# suites 19
+# pass 223
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 7001.254021

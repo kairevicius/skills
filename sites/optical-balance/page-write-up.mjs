@@ -1,14 +1,8 @@
-/**
- * The page as a blog post: a narrative that walks from the problem through every example to
- * the method, in plain sentences with one term per concept. Every number is a measurement
- * passed in from build-docs.mjs, and every comparative claim (which logo is largest, which
- * way a shape moves) is derived from those measurements rather
- * than written as text, so a rebuild cannot leave a sentence that the figures contradict.
- */
+import { sitePage } from '../site.mjs';
 import { ACCENT_CONTRAST, BACKGROUND_CONTRAST, CENTER_BLEND, DEFAULT_RASTER_EDGE, EXTENT_ALPHA } from "../../skills/optical-balance/scripts/lib.mjs";
 import { motionFigure, MOTION_CSS } from "./page-parts.mjs";
 
-export default function renderWriteUp({ F, N, img, label, labelOf, offCenterOf, demo, PAIR_W, ACCENT, LINK, GUIDE, ACCENT_SHARE_LABEL }) {
+export default function renderWriteUp({ F, N, img, label, labelOf, offCenterOf, demo, PAIR_W, ACCENT_SHARE_LABEL }) {
     const abs = (v) => Math.abs(Number(v));
     const pct1 = (v) => Number(v).toFixed(1);
     /** Distance from the visual center to the container center on both axes, the value each figure's label scores. */
@@ -47,40 +41,23 @@ export default function renderWriteUp({ F, N, img, label, labelOf, offCenterOf, 
     const moveText = (names, way) => `the ${and(names)} ${names.length === 1 ? "moves" : "move"} ${way}`;
     const rowMoves = [rowUp.length ? moveText(rowUp, "up") : "", rowDown.length ? moveText(rowDown, "down") : ""].filter(Boolean).join(", and ");
 
-    return `<!doctype html>
+    return sitePage(`<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>The box is not the ink</title>
 <style>
-:root {
-    --paper: #fbfbfb; --ink: #1a1a1a; --muted: #6b6b6b; --faint: #a3a3a3; --hair: #e4e4e4; --accent: ${ACCENT}; --link: ${LINK}; --guide: ${GUIDE};
-    /* Four sizes, two weights. */
-    --size-title: 34px; --size-lede: 20px; --size-body: 17px; --size-small: 13px;
-}
-* { box-sizing: border-box; }
-html { color-scheme: light; }
-body { margin: 0; background: var(--paper); color: var(--ink); font: var(--size-body)/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; -webkit-font-smoothing: antialiased; }
-main { max-width: 880px; margin: 0 auto; padding: 88px 32px 112px; }
-h1 { font-size: var(--size-title); font-weight: 600; line-height: 1.15; margin: 0 0 16px; letter-spacing: -0.015em; max-width: 680px; }
-h2 { font-size: var(--size-lede); font-weight: 600; line-height: 1.3; margin: 80px 0 12px; letter-spacing: -0.005em; }
-h3 { font-size: var(--size-body); font-weight: 600; margin: 48px 0 8px; }
-p { margin: 0 0 16px; max-width: 660px; }
-.lede { font-size: var(--size-lede); line-height: 1.5; color: var(--muted); max-width: 680px; margin-bottom: 8px; }
 .muted { color: var(--muted); }
 .small, pre, table { font-size: var(--size-small); }
 p.small { line-height: 1.5; }
 .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 24px 32px; align-items: start; margin: 40px 0 20px; }
-/* Bottom-aligned, so a label that wraps at a narrow width does not push its tile below its neighbors. */
 .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; align-items: end; margin: 40px 0 32px; }
 .steps figure { min-width: 0; }
 @media (max-width: 720px) { .steps { grid-template-columns: 1fr; } }
 .pair figure { min-width: 0; }
 .pair.stack { grid-template-columns: minmax(0, ${PAIR_W * 2}px); row-gap: 28px; }
-figure { margin: 0; }
 figure.wide { margin: 40px 0 20px; }
-/* Two stacked strips are tall blocks; the pair needs a clear break, not a hairline. */
 figure.wide + figure.wide { margin-top: 64px; }
 figure.hero { margin: 48px 0 32px; }
 .fig { position: relative; display: block; width: 100%; }
@@ -113,19 +90,14 @@ ${MOTION_CSS}
 @media (max-width: 720px) { .demo { height: 720px; } }
 .label { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; font-size: var(--size-small); font-weight: 600; color: var(--ink); margin: 0 0 8px; letter-spacing: 0.01em; }
 .label .score { font-weight: 400; color: var(--faint); font-variant-numeric: tabular-nums; }
-pre { font: var(--size-small)/1.55 ui-monospace, SFMono-Regular, Menlo, monospace; background: transparent; margin: 20px 0; padding: 0; white-space: pre; overflow-x: auto; color: var(--ink); }
-code { font: var(--size-small) ui-monospace, SFMono-Regular, Menlo, monospace; }
 table { border-collapse: collapse; margin: 20px 0; width: 100%; max-width: 660px; }
 th, td { text-align: left; padding: 6px 12px 6px 0; border-bottom: 1px solid var(--hair); vertical-align: top; font-variant-numeric: tabular-nums; }
 th { font-weight: 600; color: var(--muted); }
 td.num, th.num { text-align: right; padding-right: 0; padding-left: 12px; }
-/* A right-aligned column that is not the last one still needs a gutter. */
 td.num:not(:last-child), th.num:not(:last-child) { padding-right: 20px; }
 .scroll { overflow-x: auto; }
 ul, ol { padding-left: 22px; max-width: 660px; margin: 0 0 16px; }
 li { margin: 6px 0; }
-a { color: var(--link); text-decoration: none; }
-a:hover { text-decoration: underline; }
 </style>
 </head>
 <body>
@@ -363,5 +335,5 @@ node optical.mjs frame    photo.jpg --out avatar.png --bg "#0a0a08" --tolerance 
 </main>
 </body>
 </html>
-`;
+`, 'write-up');
 }

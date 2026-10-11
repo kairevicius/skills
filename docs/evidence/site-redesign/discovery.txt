@@ -1,0 +1,29 @@
+npm WARN EBADENGINE Unsupported engine {
+npm WARN EBADENGINE   package: 'skills@1.7.2',
+npm WARN EBADENGINE   required: { node: '>=22.20.0' },
+npm WARN EBADENGINE   current: { node: 'v20.19.2', npm: '9.2.0' }
+npm WARN EBADENGINE }
+
+│
+●   cursor-cli  Agent detected — installing non-interactively
+[?25l│
+◇  Source: /workspace/codex/skills-ob
+[?25h[?25l│
+◇  Local path validated
+[?25h[?25l│
+◇  Found 2 skills
+[?25h
+│
+◇  Available Skills
+│
+│    optical-balance
+│
+│      Measure optical alignment and sizing of icons, logos, labels, and crops with a reproducible heuristic. Returns offsets and sizes, then checks rendered pixels. Use for "looks off center", "visually center", "optical alignment", "icons look different sizes", "logo wall", or "icon or circle overshoot".
+│
+│    proof
+│
+│      Turn one person's work in a git repository into claims backed by evidence a reader can check (commits, files, pull requests, counts), and write proof.json with Markdown and HTML reports that contain no source code. Also verify a proof.json someone sent you: re-derive it from the public repository and write an audited report, because nothing in a received proof is trusted. Use when the user says "turn my work into proof", "extract my skills from this repo", "make a developer evidence report", "generate a proof of work", "verify this candidate's proof", or "check this proof.json", or when a recruiter asks for proof of a project.
+
+│
+└  Use --skill <name> to install specific skills
+

@@ -1,3 +1,4 @@
+import { demoPage } from '../site.mjs';
 /**
  * Builds the docs site from the skill's own measurement code, so each number on
  * a page is a real measurement of the image beside it. Re-run after any change to lib.mjs:
@@ -25,7 +26,6 @@ const OUT = join(DIST, "assets");
 mkdirSync(OUT, { recursive: true });
 
 const ACCENT = "#06b6d4";
-const LINK = "#0e7490";
 const GUIDE = "#dcdcdc";
 /** Display width of one figure in a side-by-side pair; renders are at least 2x this. */
 const PAIR_W = 392;
@@ -905,11 +905,9 @@ for (const id of LANDING_FIGURES) {
         .png({ compressionLevel: 9, palette: true, quality: 90 }).toFile(join(HERE, "../../media/optical-balance.png"));
 }
 
-// The GitHub Pages workflow sets GITHUB_REPOSITORY, which turns on the repository links.
-const repo = process.env.GITHUB_REPOSITORY || process.env.OPTICAL_REPO || "";
 const demo = await renderDemo();
-writeFileSync(join(DIST, "index.html"), finish(renderLanding({ F, N, label, webp, repo, ACCENT, LINK })));
-writeFileSync(join(DIST, "write-up.html"), finish(renderWriteUp({ F, N, img, label, labelOf, offCenterOf, demo, PAIR_W, ACCENT, LINK, GUIDE, ACCENT_SHARE_LABEL })));
-writeFileSync(join(DIST, "demo.html"), demo.html);
+writeFileSync(join(DIST, "index.html"), finish(renderLanding({ F, N, label, webp })));
+writeFileSync(join(DIST, "write-up.html"), finish(renderWriteUp({ F, N, img, label, labelOf, offCenterOf, demo, PAIR_W, ACCENT_SHARE_LABEL })));
+writeFileSync(join(DIST, "demo.html"), demoPage(demo.html));
 console.log(`wrote dist/index.html, dist/write-up.html and dist/demo.html${INLINE ? " (self-contained)" : ""}, and ${Object.keys(figures).length - 1} figures under dist/assets`);
 console.log(JSON.stringify(numbers, null, 1));
