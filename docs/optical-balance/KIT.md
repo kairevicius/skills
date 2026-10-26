@@ -1,5 +1,7 @@
 # Blind preference test kit
 
+This protocol lives in the repository. It is not part of the installed optical-balance skill and is not loaded during measurement.
+
 ## Scope
 
 It does ONE thing: prepares a blind comparison of the heuristic with box and mass placement.
@@ -16,7 +18,7 @@ It supplies no participant results.
 
 ### Phase 1: Generate
 
-Run `cd scripts && npm run kit -- /absolute/output/folder`.
+Run `cd skills/optical-balance/scripts && npm run kit -- /absolute/output/folder`.
 The generator uses shipped MIT-licensed fixtures and randomizes each pair's left/right assignment.
 Archive the generated key with the stimuli so the assignment can be recovered.
 
@@ -57,7 +59,7 @@ The method remains a heuristic until independent evidence supports broader claim
 
 ## Files
 
-- `scripts/preference-kit.mjs`: stimuli and blank results generator.
-- `fixtures/validation/manifest.json`: fixture identities and license.
+- `skills/optical-balance/scripts/preference-kit.mjs`: stimuli and blank results generator.
+- `skills/optical-balance/fixtures/validation/manifest.json`: fixture identities and license.
 - Generated `organizer-key.json`: concealed assignments.
 - Generated `results.csv`: empty participant results template.

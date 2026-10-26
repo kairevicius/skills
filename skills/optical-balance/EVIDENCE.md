@@ -114,7 +114,8 @@ The maximum off-center reading is 6.678654% before placement and 0.177497% after
 These values come from `cd scripts && npm run validate`; raw readings and artwork hashes are in `recorded.json`.
 Placement and scoring share the same formula. Passing gates therefore checks numerical consistency and is circular for perception.
 
-Use [KIT.md](KIT.md) for independent blind preference testing.
+Use the repository file `docs/optical-balance/KIT.md` for independent blind preference testing.
+It is not part of the installed skill and is not loaded during measurement.
 No participant results are claimed or supplied.
 
 ## Cases in the write-up
