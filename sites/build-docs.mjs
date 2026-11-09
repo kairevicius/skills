@@ -72,4 +72,5 @@ mkdirSync(new URL('../_site/', import.meta.url), { recursive: true });
 writeFileSync(new URL('../_site/index.html', import.meta.url), home);
 cpSync(new URL('./optical-balance/dist/', import.meta.url), new URL('../_site/optical-balance/', import.meta.url), { recursive: true });
 cpSync(new URL('./proof/dist/', import.meta.url), new URL('../_site/proof/', import.meta.url), { recursive: true });
+cpSync(new URL('./well/', import.meta.url), new URL('../_site/well/', import.meta.url), { recursive: true });
 console.log('Site assembly PASS: home, optical-balance, write-up, demo, proof');
