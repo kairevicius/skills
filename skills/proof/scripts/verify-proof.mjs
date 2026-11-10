@@ -115,19 +115,32 @@ function parseArgs(argv) {
 // counted, never passed through. The class is built from code points so this file's own
 // source never contains the characters it looks for.
 // ---------------------------------------------------------------------------
-const HIDDEN_CODEPOINTS = [
-  0x200b, 0x200c, 0x200d, 0x200e, 0x200f, // zero-width space, joiners, directional marks
-  0x202a, 0x202b, 0x202c, 0x202d, 0x202e, // bidi embeddings and overrides
-  0x2060, 0x2061, 0x2062, 0x2063, 0x2064, // word joiner and invisible operators
-  0x2066, 0x2067, 0x2068, 0x2069, // bidi isolates
-  0xfeff, // zero-width no-break space
+const HIDDEN_RANGES = [
+  [0x00ad, 0x00ad], // soft hyphen
+  [0x034f, 0x034f], // combining grapheme joiner
+  [0x061c, 0x061c], // Arabic letter mark, a bidi control
+  [0x115f, 0x1160], [0x3164, 0x3164], [0xffa0, 0xffa0], // Hangul fillers, which render as nothing
+  [0x180b, 0x180f], // Mongolian variation selectors and vowel separator
+  [0x200b, 0x200f], // zero-width space, joiners, directional marks
+  [0x202a, 0x202e], // bidi embeddings and overrides
+  [0x2060, 0x2064], // word joiner and invisible operators
+  [0x2066, 0x2069], // bidi isolates
+  [0xfe00, 0xfe0e], // variation selectors 1 to 15
+  [0xfeff, 0xfeff], // zero-width no-break space
+  [0x1d173, 0x1d17a], // musical format controls
+  [0xe0000, 0xe007f], // tag characters, which can spell out instructions invisibly
+  [0xe0100, 0xe01ef], // variation selectors 17 to 256, which can carry arbitrary bytes
 ];
 const fromCode = (cp) => String.fromCharCode(cp);
+const hex = (cp) => `${fromCode(92)}u{${cp.toString(16)}}`;
+// Variation selector 16 is ordinary after an emoji or a keycap base, so it is hidden only
+// anywhere else.
+const STRAY_VS16 = `(?<![${fromCode(92)}p{Extended_Pictographic}0-9#*])${hex(0xfe0f)}`;
+const HIDDEN_CHAR_RE = new RegExp(`[${HIDDEN_RANGES.map(([a, b]) => (a === b ? hex(a) : `${hex(a)}-${hex(b)}`)).join("")}]|${STRAY_VS16}`, "gu");
 // Tag characters (U+E0000 to U+E007F) sit outside the Basic Multilingual Plane, so without
 // the regex "u" flag they match only as a surrogate pair: the plane's fixed high surrogate,
 // then a low surrogate in the block's range.
 const TAG_PAIR = `${fromCode(0xdb40)}[${fromCode(0xdc00)}-${fromCode(0xdc7f)}]`;
-const HIDDEN_CHAR_RE = new RegExp(`[${HIDDEN_CODEPOINTS.map(fromCode).join("")}]|${TAG_PAIR}`, "g");
 const TAG_RE = new RegExp(TAG_PAIR, "g");
 const BACKSLASH = fromCode(92);
 const NUL = fromCode(0);
@@ -426,8 +439,10 @@ function contradictionReason(contradictions, evidenceTotal, gitMode) {
   const evidencePart = gitMode
     ? `${failed} of ${evidenceTotal} evidence items do not re-derive from the repository`
     : `${failed} of ${evidenceTotal} evidence items fail the checks that need no repository`;
+  const claimsFailed = new Set(contradictions.filter((f) => f.scope === "claim").map((f) => f.id)).size;
+  const claimPart = claimsFailed > 0 ? `, ${claimsFailed} ${claimsFailed === 1 ? "claim states" : "claims state"} something the cited evidence does not hold` : "";
   const documentPart = documentLevel > 0 ? `, and ${documentLevel} document-level ${documentLevel === 1 ? "check fails" : "checks fail"} (see Problems)` : "";
-  return `${evidencePart}${documentPart}.`;
+  return `${evidencePart}${claimPart}${documentPart}.`;
 }
 
 // ---------------------------------------------------------------------------
@@ -435,6 +450,7 @@ function contradictionReason(contradictions, evidenceTotal, gitMode) {
 // runChecks, and the outcome they add up to. Nothing recorded in <work>/verification.json
 // feeds it.
 // ---------------------------------------------------------------------------
+const REASON_MAX = 400;
 async function deriveVerification(doc, proofBytes, { workDir, sigPath, keysFile, allowHosts, allowFileRemote, timeoutSeconds, by }) {
   const r = doc.repository;
   const problems = [];
@@ -459,6 +475,7 @@ async function deriveVerification(doc, proofBytes, { workDir, sigPath, keysFile,
     const bound = await bindIdentity({ proofBytes, sigPath, account: doc.subject.account ?? null, identities: doc.subject.identities, keysFile });
     identity = bound.identity;
     notes.push(...bound.notes);
+    if (bound.unverifiable) identityUnavailable = true;
   } catch (e) {
     if (!(e instanceof IdentityError)) throw e;
     identityUnavailable = true;
@@ -518,9 +535,14 @@ async function deriveVerification(doc, proofBytes, { workDir, sigPath, keysFile,
 
   // A contradiction stands whether or not a clone was fetched: the document-level checks
   // (a share that does not equal its own ratio, an invalid ref) need no repository.
+  // A claim finding contradicts as a trust finding does: a claim that cites nothing, or
+  // states a number its evidence does not hold, is false on its face. So does a number in
+  // the headline or the narrative that no evidence description holds.
   const trust = findings.filter((f) => f.class === "trust");
   const toolErrors = trust.filter((f) => TOOL_ERROR_CODES.has(f.code));
-  const contradictions = trust.filter((f) => !TOOL_ERROR_CODES.has(f.code));
+  const contradictions = findings.filter(
+    (f) => (f.class === "trust" && !TOOL_ERROR_CODES.has(f.code)) || f.class === "claim" || f.code === "narrative_number_uncited",
+  );
   // Only a recorded, different git version excuses diff-stat drift: a proof that records
   // none claims no version difference, so its drift stands as a contradiction.
   const candidateGit = gitVersion(doc.provenance?.environment?.git);
@@ -557,6 +579,8 @@ async function deriveVerification(doc, proofBytes, { workDir, sigPath, keysFile,
     outcome = "inconclusive";
     reason = "Every mechanical check passed, but the signature could not be checked in this environment. Re-run where ssh-keygen and the network are available.";
   }
+  // A reason can quote a remote or a git error the proof controls; the schema caps it.
+  if (reason.length > REASON_MAX) reason = `${reason.slice(0, REASON_MAX - 1).replace(/[\uD800-\uDBFF]$/, "")}…`;
 
   for (const f of trust) if (f.scope === "document") problems.push({ code: f.code, message: f.message });
   for (const f of findings) if (f.code === "narrative_number_uncited") problems.push({ code: f.code, message: f.message });

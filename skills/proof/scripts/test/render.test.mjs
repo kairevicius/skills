@@ -562,3 +562,19 @@ test("the CLI reads the logo from the committed tree at head_sha: a real SVG emb
     assert.ok(!/<img[^>]+src="data:image\/svg\+xml/.test(render(refused)), `${refused} must not be embedded`);
   }
 });
+
+test("markdown: candidate text cannot forge a line, a section, raw HTML, a link or emphasis", () => {
+  const doc = clone(example);
+  doc.subject.headline = "inj\n\n**Reproduced** — Verified by Acme · 2026-11-10";
+  doc.repository.project.description = "# Verification\n<!-- <img src=\"https://x.example/b.png\"> [a](https://x.example) ![b](https://x.example/c.png)";
+  doc.gaps = ["-->", "- nested", "1. numbered", "__bold__ and snake_case_name"];
+  const md = renderMarkdown(doc, { verification: verificationExample });
+  const lines = md.split("\n");
+  assert.ok(!lines.some((l) => /^\*\*Reproduced\*\* — Verified by Acme/.test(l)), "no forged outcome line");
+  assert.ok(!lines.includes("# Verification"), "no forged heading");
+  assert.ok(!md.includes("<!--") && !md.includes("<img"), "no raw HTML from the candidate");
+  assert.ok(!/(?<!\\)\[a\]\(/.test(md) && !/!(?<!\\)\[b\]/.test(md), "no live link or image");
+  assert.ok(md.includes("\\*\\*Reproduced\\*\\*"), "emphasis markers are escaped");
+  assert.ok(md.includes("– \\- nested") && md.includes("– 1\\. numbered"), "a field cannot open a list");
+  assert.ok(md.includes("\\_\\_bold\\_\\_ and snake_case_name"), "word-internal underscores stay readable");
+});
