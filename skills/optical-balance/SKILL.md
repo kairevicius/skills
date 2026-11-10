@@ -63,7 +63,7 @@ Use each printed word with this meaning only. Formulas live in [METHOD.md](METHO
 Collect the inputs, then walk **Decision points**. Skip an element that needs no correction.
 
 - **the element**, as SVG, PNG, JPEG, or WebP. An SVG is best, because a raster smaller than its render size blurs;
-- **the background it renders on**, as a luminance (`255` is white) or a hex color, or `--bg auto` for an opaque file's own backdrop;
+- **the background it renders on**, as a hex color with its `#`, or a bare number, which is always a luminance (`255` is white). Write `'#111'`, because `111` means luminance 111. Only `measure`, `check`, and `equalize` accept `--bg auto`, which reads an opaque file's own backdrop;
 - **the container size and the element size**, and what sets the position: CSS, a design file, an asset bake, or a strip layout.
 
 ### Phase 2: Measure
@@ -75,10 +75,11 @@ Collect the inputs, then walk **Decision points**. Skip an element that needs no
 | one element, numbers only | `node "$SKILL_ROOT/scripts/optical.mjs" measure <file> --bg <#hex>` | `offset to apply` and `css` |
 | a logo row or wall | `node "$SKILL_ROOT/scripts/optical.mjs" strip <files...> --out strip.png --height <px> [--max-width <px>] --scale 2` | the table and `size spread` |
 | an avatar or app tile baked into an image file | `node "$SKILL_ROOT/scripts/optical.mjs" tile <file> --out tile.png --size 192 --art 0.75 --plate <#hex>` | block 2 for the gate; for a component, use `place` instead |
-| the numbers before a change | `strip ... --sizing height --centering box`, or `check --spread <files...>` on the files as they are | `size spread` |
+| a row before a change | `strip ... --sizing height --centering box` renders the files at one row height, as an uncorrected row shows them | `size spread` |
+| exported assets, at their own pixel sizes | `check --spread <files...>` measures each file as it is, with no resizing. An SVG is measured at a 1024px longest edge | `size spread` |
 | a photo crop | `node "$SKILL_ROOT/scripts/optical.mjs" frame <photo> --out avatar.png --bg <backdrop #hex> [--zoom 0.9] [--circle]` | `crop` and the `framed` block |
 
-`equalize` prints the computed sizes without rendering. Use `strip` for the values you ship, because it renders each file, corrects the rounding, and checks the result.
+`equalize` prints the computed sizes without rendering. Use `strip` for the values you ship, because it renders each file, corrects the rounding, and checks the result. `strip` renders at 2x unless you pass `--scale`.
 
 ### Phase 3: Apply
 
@@ -121,7 +122,7 @@ Walk this tree. Do not skip a step.
 3. **What is it?**
    - **Own backdrop visible in the container** (a white or colored square on a plate of another color). This is a source problem, not a centering problem. Ask for a transparent file. Stop.
    - **Self-backgrounded** (a disc mark, an app icon on its own colored square, a full-bleed image). `place` measures the artwork inside the backdrop and prints `inside backdrop`. `measure --bg auto` does the same. Skip centering if that line passes. In a set, size it like any other logo.
-   - **Photo.** Run `frame`. Inspect the crop before accepting it. Use `--tolerance` from 0.1 to 0.2 on a grainy backdrop. Contrast cannot identify a subject. For a busy scene, run a face or subject detector first, then center the crop on its result.
+   - **Photo.** Run `frame`. Inspect the crop before accepting it. The `framed` block prints the gate verdict. Use `--tolerance` from 0.1 to 0.2 on a grainy backdrop. Contrast cannot identify a subject. For a busy scene, run a face or subject detector first, then center the crop on its result.
    - **Text.** Measure caps labels and initials once for each typeface. Store the offset in em for each rendered string. Choose the alignment objective before measuring. For caps labels, use cap-to-baseline: `text-box-trim: trim-both; text-box-edge: cap alphabetic` where supported. For lowercase, x-height alignment and string-ink centering are different objectives. Mixed case, accents, and fallback fonts need the actual rendered string. For initials, include descenders and asymmetric letters; record offsets per string, typeface, weight, and theme. Font-metric trimming does not prove optical centering. Verify the container in the browser. Round-letter overshoot belongs to the typeface. Never apply an automatic icon correction to text.
    - **Set or row.** Run `strip`. The default target is the smallest element, so no element grows past its cell. For an icon set with a keyline, use `--target <keyline file> --grow`. For a row with a width limit, use `--max-width`.
    - **Icon beside a label.** Measure the icon and the label together against the button. The measurement determines the padding; no fixed ratio applies. Put it into the button component.
@@ -173,7 +174,7 @@ Use the captured background and foreground for `--bg` and `--fg` when measuring 
 ## Known limits
 
 - **Alpha-only weights** under-correct a two-tone mark, because they count faint ink at full weight. Keep the default weights.
-- **Equal ink area** (`--strength 1`) shrinks wide wordmarks until they look smaller than a compact solid mark. Keep the default power of 0.5.
+- **Equal ink area** (`--strength 1`) shrinks wide wordmarks until they look smaller than a compact solid mark. Keep the default power of 0.5. The size gate reads perceived size, so `strip` with another `--strength` or `--metric` fails it and says why.
 - **Saturated color.** OKLab chroma contributes to luma + OKLab chroma contrast. The normalisation remains a heuristic; confirm strongly coloured marks in context.
 
 ## Files
@@ -181,7 +182,7 @@ Use the captured background and foreground for `--bg` and `--fg` when measuring 
 - [METHOD.md](METHOD.md): the formulas, the fallbacks, the constants, and why zero is not reachable.
 - [EVIDENCE.md](EVIDENCE.md): worked examples with the commands that reproduce them, the validation on held-out logos and icons, prior art, and history.
 - `scripts/lib.mjs`: the measurement core (`measureFile`, `renderPlacement`, `equalize`, `renderTile`, `renderStrip`, `renderFrame`).
-- `scripts/test.mjs`: the regression tests. Run `npm test` in `scripts/`.
+- `scripts/test.mjs` and `scripts/v2-test.mjs`: the regression tests. Run `npm test` in `scripts/`.
 - `fixtures/icons`: MIT-licensed icons that the tests and the calibration use.
 - Maintainer: `npm run test:browser` in `scripts/` reproduces the live-page capture above.
 - The blind preference protocol is not loaded during measurement. In this repository it is `docs/optical-balance/KIT.md`.

@@ -172,10 +172,11 @@ Give the recipient the outcome, the identity status, and the interview questions
 
   A single commit, file, or test reference caps a claim at 0.60. A skill's level follows its score: `very_strong` from 0.85, `strong` from 0.70, `moderate` from 0.50, and `weak` below.
 - **Private work.** A private repository verifies as Not reproducible. That outcome is neutral, so read the claims as interview material.
-- **Redacted proof.** `--redacted` withholds the repository name, remote, product, logo, and account. Paths and commit subjects still appear, and the proof is always Not reproducible.
+- **Redacted proof.** `--redacted` withholds the repository name, remote, product, logo, and account. The validator rejects a redacted proof that sets `subject.account`. Paths and commit subjects still appear, and the proof is always Not reproducible.
 - **An unpushed head.** Use `--rev` with a pushed branch, or a recipient gets Not reproducible.
 - **Several emails.** List each one with `--author`. Matching is exact ASCII email, and the schema rejects `"@"`.
 - **A number only in a commit body or a pull request description.** Drop it, or cite a commit whose subject states it. Verify counts it as unbacked, and the outcome becomes Contradicted.
+- **A number with a unit.** "17ms" or "95x" never matches a count from git. Back it with a cited commit subject that states the same number and unit, or drop it.
 - **Exclusive words.** "sole", "entire", "from scratch", and "architected" need the subject to own at least half of the cited work, or the claim is flagged. "led", "managed", and "mentored" always become an interview question.
 - **Inconclusive.** The network failed, git is older than 2.40, or only diff-derived counts differ under a different recorded git version. Re-run or ask, because it is not a verdict.
 
@@ -184,13 +185,14 @@ Give the recipient the outcome, the identity status, and the interview questions
 - Before the proof is sent, `validate-proof.mjs proof/proof.json --git --rendered proof/` prints PASS.
 - The PASS line reports every number as re-derived or self-reported, and none as unbacked.
 - A recipient bases a decision only on a `verified.html` that their own copy produced.
-- `npm test` in `scripts/` passes. It runs 223 tests: fixture repositories with known numbers, the validator matrix, renderer parity, signing, and the verify outcomes.
+- `npm test` in `scripts/` passes. It runs 234 tests: fixture repositories with known numbers, the validator matrix, renderer parity, signing, and the verify outcomes.
 
 ## Known limits
 
 - Verify catches a proof that does not match its history. It cannot catch a history staged from the start, because whoever controls a repository controls its authors and dates.
 - Private work cannot be re-derived, so most professional proofs verify as Not reproducible.
 - A candidate can record a different git version to turn an inflated line count into Inconclusive. To measure the drift, run `git-evidence.mjs` under two git versions and diff the JSON.
+- Identity binds only a forge noreply email. A signed proof whose commits use another email reads as unbound.
 - Fork detection, cherry-pick detection, repository age checks, and the subject's share of each pull request are not built.
 - The scripts buffer git output in memory, so a very large repository can fail to extract.
 

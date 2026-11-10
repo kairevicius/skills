@@ -4,13 +4,33 @@
 //   Link 1 — does a claim's number appear in the evidence it cites? (missingNumbers)
 //   Link 2 — does an evidence number re-derive from git?            (classifyNumbers)
 
+// Fold every compatibility form to ASCII before reading: fullwidth digits and letters,
+// and any other decimal digit a script has, read as the digit they show. Without this a
+// number written in another digit set is never read, so never traced.
+const OTHER_DIGIT_RE = /[^\x00-\x7f]/gu;
+const DECIMAL_DIGIT_RE = /^\p{Nd}$/u;
+function digitValue(ch) {
+  if (!DECIMAL_DIGIT_RE.test(ch)) return ch;
+  // Unicode lays each script's digits out as a run of ten, zero first.
+  const cp = ch.codePointAt(0);
+  let zero = cp;
+  while (cp - zero < 9 && DECIMAL_DIGIT_RE.test(String.fromCodePoint(zero - 1))) zero -= 1;
+  return String(cp - zero);
+}
+export function foldDigits(text) {
+  return String(text).normalize("NFKC").replace(OTHER_DIGIT_RE, digitValue);
+}
+
 const ALNUM_RE = /[A-Za-z0-9]/;
 const isAlnum = (ch) => !!ch && ALNUM_RE.test(ch);
 
 // Two-or-more dot-groups reads as a version (11.8.0), not a number.
 const VERSION_RE = /^\d+(?:\.\d+){2,}/;
+// ...unless every group after the first has 3 digits: 1.200.000 is a count with dot grouping.
+const DOT_GROUPED_RE = /^\d{1,3}(?:\.\d{3}){2,}(?![\d.])/;
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}/;
-const CLOCK_RE = /^\d{1,2}:\d{2}(?::\d{2})?/;
+// Only a real time of day is skipped: 20:80 is a ratio, and both its numbers are read.
+const CLOCK_RE = /^(?:[01]?\d|2[0-3]):[0-5]\d(?::[0-5]\d)?(?!\d)/;
 const TWO_THREE_D_RE = /^[23]D$/i;
 const SIZE_UNITS = ["KB", "MB", "GB", "TB"];
 
@@ -52,6 +72,7 @@ function matchUnit(text, pos) {
  * SHAs. `#4978` reads as a PR reference with unit "#".
  */
 export function readNumbers(text) {
+  text = foldDigits(text);
   const tokens = [];
   let i = 0;
   while (i < text.length) {
@@ -67,7 +88,9 @@ export function readNumbers(text) {
     if (/\d/.test(ch) && !isAlnum(text[i - 1])) {
       const rest = text.slice(i);
       let skipLen = 0;
+      const dotGrouped = DOT_GROUPED_RE.exec(rest);
       if (ISO_DATE_RE.test(rest)) skipLen = ISO_DATE_RE.exec(rest)[0].length;
+      else if (dotGrouped) skipLen = 0;
       else if (VERSION_RE.test(rest)) skipLen = VERSION_RE.exec(rest)[0].length;
       else if (CLOCK_RE.test(rest)) skipLen = CLOCK_RE.exec(rest)[0].length;
       else skipLen = hexShaLength(text, i);
@@ -80,8 +103,8 @@ export function readNumbers(text) {
         continue;
       }
 
-      const numStr = (/^\d{1,3}(?:,\d{3})+(?:\.\d+)?/.exec(rest) ?? /^\d+(?:\.\d+)?/.exec(rest))[0];
-      const value = Number(numStr.replace(/,/g, ""));
+      const numStr = (dotGrouped ?? /^\d{1,3}(?:,\d{3})+(?:\.\d+)?/.exec(rest) ?? /^\d+(?:\.\d+)?/.exec(rest))[0];
+      const value = Number(dotGrouped ? numStr.replace(/\./g, "") : numStr.replace(/,/g, ""));
       const afterNum = i + numStr.length;
       const unitMatch = matchUnit(text, afterNum);
       const raw = unitMatch ? numStr + text.slice(afterNum, afterNum + unitMatch.length) : numStr;
@@ -101,8 +124,10 @@ const COUNT_WORDS = {
   two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10,
   eleven: 11, twelve: 12, thirteen: 13, fourteen: 14, fifteen: 15, sixteen: 16,
   seventeen: 17, eighteen: 18, nineteen: 19, twenty: 20,
-  dozen: 12, hundred: 100, thousand: 1000, million: 1000000,
-  doubled: 2, tripled: 3, halved: 0.5, tenfold: 10,
+  thirty: 30, forty: 40, fifty: 50, sixty: 60, seventy: 70, eighty: 80, ninety: 90,
+  dozen: 12, hundred: 100, thousand: 1000, million: 1000000, billion: 1000000000, trillion: 1000000000000,
+  doubled: 2, tripled: 3, quadrupled: 4, quintupled: 5, halved: 0.5,
+  twice: 2, thrice: 3, twofold: 2, threefold: 3, fourfold: 4, fivefold: 5, tenfold: 10,
 };
 const COUNT_WORD_RE = new RegExp(`\\b(${Object.keys(COUNT_WORDS).join("|")})\\b`, "gi");
 
@@ -115,6 +140,7 @@ function insideIdentifier(text, start, end) {
 
 /** Read every count word (whole word, case-insensitive) present in `text` and its value. */
 export function countWords(text) {
+  text = foldDigits(text);
   const out = [];
   COUNT_WORD_RE.lastIndex = 0;
   let m;
@@ -165,15 +191,20 @@ const DIFF_STAT_FIELD = { insertion: "insertions", insertions: "insertions", del
  * `prNumber`   — the cited pull request's number, if this evidence is a pull_request.
  */
 export function classifyNumbers(description, { measures = [], subjects = [], stats = null, rangeCount = null, prNumber = null } = {}) {
+  description = foldDigits(description);
   const tokens = readNumbers(description);
+  // A count from git has no unit. So a token with one ("17ms", "95x") never matches a
+  // count, and "%" matches only a measure that is a share.
   const numbers = tokens.map((t) => {
-    const measure = measures.find((m) => m.token === t.raw);
+    const bare = t.unit === null;
+    const measure = measures.find((m) => foldDigits(m.token) === t.raw);
     if (measure && measure.value !== undefined && measure.value !== null) {
-      const expected = t.unit === "%" ? Math.round(100 * measure.value) : measure.value;
+      const isShare = /share$/.test(String(measure.field));
+      const expected = t.unit === "%" && isShare ? Math.round(100 * measure.value) : bare ? measure.value : undefined;
       if (expected === t.value) return { ...t, class: "rederived", source: measureLabel(measure) };
     }
 
-    if (stats) {
+    if (stats && bare) {
       const after = description.slice(t.index + t.raw.length);
       const m = DIFF_STAT_RE.exec(after);
       if (m) {
@@ -182,11 +213,11 @@ export function classifyNumbers(description, { measures = [], subjects = [], sta
       }
     }
 
-    if (rangeCount !== null && t.value === rangeCount) return { ...t, class: "rederived", source: "commits in the cited range" };
-    if (prNumber !== null && t.value === prNumber) return { ...t, class: "rederived", source: "the cited pull request's number" };
+    if (bare && rangeCount !== null && t.value === rangeCount) return { ...t, class: "rederived", source: "commits in the cited range" };
+    if ((bare || t.unit === "#") && prNumber !== null && t.value === prNumber) return { ...t, class: "rederived", source: "the cited pull request's number" };
 
     for (const s of subjects) {
-      const inSubject = readNumbers(s.subject).some((n) => n.value === t.value) || countWords(s.subject).some((w) => w.value === t.value);
+      const inSubject = readNumbers(s.subject).some((n) => n.value === t.value && (bare || numberKey(n) === numberKey(t))) || (bare && countWords(s.subject).some((w) => w.value === t.value));
       if (inSubject) return { ...t, class: "self_reported", source: `commit ${s.sha.slice(0, 7)} subject: "${s.subject}"` };
     }
 
@@ -194,7 +225,7 @@ export function classifyNumbers(description, { measures = [], subjects = [], sta
   });
 
   const usedRaw = new Set(tokens.map((t) => t.raw));
-  const unusedMeasures = measures.filter((m) => !usedRaw.has(m.token));
+  const unusedMeasures = measures.filter((m) => !usedRaw.has(foldDigits(m.token)));
 
   return { numbers, unusedMeasures };
 }

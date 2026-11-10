@@ -193,6 +193,10 @@ export function verifySignature(proofBytes, sigPath, account, keys) {
           { cause: err },
         );
       }
+      // A killed or timed-out ssh-keygen says nothing about the signature.
+      if (err && (err.killed || err.signal || err.code === "ETIMEDOUT")) {
+        throw new IdentityError("ssh-keygen did not finish, so the signature could not be checked", { cause: err });
+      }
       return "invalid";
     }
   } finally {
@@ -312,9 +316,11 @@ export async function bindIdentity({
   try {
     keys = await fetchAccountKeys(account, { keysFile, fetchImpl });
   } catch (err) {
+    // A signature is present but could not be checked. That is not "absent": the caller
+    // reads `unverifiable` and reports the run as inconclusive.
     notes.push(`could not fetch public keys for ${account.host}/${account.login}: ${err.message}`);
     const emails = await bindEmails(identities, account, { lookupLogin });
-    return { identity: { status: "unbound", account: accountBlock, signature: "absent", emails }, notes };
+    return { identity: { status: "unbound", account: accountBlock, signature: "absent", emails }, notes, unverifiable: true };
   }
 
   // Not caught: ssh-keygen missing is an environment fact, not a proof fact (see the
