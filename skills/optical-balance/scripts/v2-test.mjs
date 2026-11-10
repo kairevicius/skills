@@ -5,13 +5,14 @@ import { spawnSync } from 'node:child_process';
 import { mkdtempSync, writeFileSync, copyFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { measure, measureFile, equalize, sizeSpread, renderPlacement, renderStrip, renderFrame, toRaw, offCenter } from './lib.mjs';
 const tmp = mkdtempSync(join(tmpdir(), 'optical-v2-'));
 const svg = (body, w=100, h=100) => `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}">${body}</svg>`;
 const file = (name, body) => { const p=join(tmp,name); writeFileSync(p,body); return p; };
 const play=file('play.svg',svg('<path d="M0 0L100 50L0 100Z" fill="currentColor"/>'));
 const blank=file('blank.svg',svg(''));
-const cli=(...args)=>spawnSync(process.execPath,[new URL('./optical.mjs',import.meta.url).pathname,...args],{encoding:'utf8'});
+const cli=(...args)=>spawnSync(process.execPath,[fileURLToPath(new URL('./optical.mjs',import.meta.url)),...args],{encoding:'utf8'});
 test('blank inputs and invalid raw sizes fail clearly',async()=>{
  assert.throws(()=>measure({width:0,height:0,data:Buffer.alloc(0)},255),/positive/);
  assert.throws(()=>sizeSpread([0,1]),/positive/);
@@ -131,7 +132,7 @@ test('held-out manifest renders every archived shape with reproducible readings'
   const path = new URL('../icons/'+name, dir);
   const expected = recorded.results.find(r => r.file === name);
   assert.equal(createHash('sha256').update(await readFile(path)).digest('hex'), expected.sha256);
-  const placed = await renderPlacement(path.pathname, { container: manifest.container, element: manifest.element, plate: manifest.background, fg: manifest.foreground, scale: manifest.scale });
+  const placed = await renderPlacement(fileURLToPath(path), { container: manifest.container, element: manifest.element, plate: manifest.background, fg: manifest.foreground, scale: manifest.scale });
   assert.equal(placed.before.pct, expected.beforePct);
   assert.equal(placed.after.pct, expected.afterPct);
   assert.deepEqual(placed.offset, expected.offset);
@@ -141,7 +142,7 @@ test('held-out manifest renders every archived shape with reproducible readings'
 });
 
 test('colour Amazon keeps the mono placement direction without a large downward fix', async () => {
- const path = name => new URL('../fixtures/colour/'+name, import.meta.url).pathname;
+ const path = name => fileURLToPath(new URL('../fixtures/colour/'+name, import.meta.url));
  const options = {container:200, element:112, plate:'#ffffff', shape:'rect'};
  const colour = await renderPlacement(path('amazon-color.svg'), options);
  const mono = await renderPlacement(path('amazon.svg'), options);
@@ -183,7 +184,7 @@ test('equal-luminance colour remains ink against a grey background through trim 
 });
 
 test('every weighting command accepts colour and preserves finite JSON readings', () => {
- const amazon = new URL('../fixtures/colour/amazon-color.svg',import.meta.url).pathname;
+ const amazon = fileURLToPath(new URL('../fixtures/colour/amazon-color.svg',import.meta.url));
  for (const cmd of ['measure','place','strip','equalize','tile','check','frame']) {
   const r = cli(cmd,amazon,'--container','200','--element','112','--bg','#fff','--plate','#fff','--scale','2','--out',join(tmp,'colour-'+cmd+'.png'),'--json');
   assert.ok([0,1].includes(r.status),cmd+': '+r.stderr);
@@ -201,7 +202,7 @@ test('orange variants on white and cream stay within 3px plus one raster step of
  const source = readFileSync(new URL('../fixtures/colour/amazon-color.svg', import.meta.url), 'utf8');
  for (const plate of ['#ffffff','#FFF8E7']) {
   const options = {container:200,element:112,plate,shape:'rect'};
-  const mono = await renderPlacement(new URL('../fixtures/colour/amazon.svg',import.meta.url).pathname,options);
+  const mono = await renderPlacement(fileURLToPath(new URL('../fixtures/colour/amazon.svg',import.meta.url)),options);
   for (const orange of ['#FF9900','#FFB347']) {
    const variant = file(orange.slice(1)+plate.slice(1)+'.svg',source.replace(/#ff9900/gi,orange));
    const colour = await renderPlacement(variant,options);
@@ -238,4 +239,90 @@ test('equal-luma cyan backdrop warns as a tile rather than a faint rectangle', a
  const m=await measureFile(tile,{bg:'#8f8f8f'});
  assert.ok(m.warnings.some(w=>w.includes('tile or badge')),m.warnings.join('\n'));
  assert.ok(!m.warnings.some(w=>w.includes('faint rectangle')));
+});
+
+// Review fixes: strip follows the requested rule, inputs fail clearly, and the CLI text matches the code.
+const ICONS = fileURLToPath(new URL('../fixtures/icons/', import.meta.url));
+const icon = name => join(ICONS, name + '-fill.svg');
+const SHAPES = ['square', 'circle', 'diamond', 'star'].map(icon);
+test('strip honours --strength: 0 keeps equal heights, 1 matches equalize', async () => {
+ const heights = async strength => (await renderStrip(SHAPES, { height: 64, scale: 2, strength })).rows.map(r => r.css.ink.height);
+ const [none, half, full] = [await heights(0), await heights(0.5), await heights(1)];
+ for (const h of none) assert.ok(Math.abs(h - 64) <= 1, `strength 0 height ${h}`);
+ const measured = await Promise.all(SHAPES.map(f => measureFile(f, { trim: true })));
+ const computed = equalize(measured, { height: 64, strength: 1 }).map(r => r.rendered.height);
+ // The strip anchors on the anchor as rendered, so compare each height as a share of the tallest.
+ const share = hs => hs.map(h => h / Math.max(...hs));
+ share(full).forEach((h, i) => assert.ok(Math.abs(h - share(computed)[i]) <= 0.02, `strength 1: ${SHAPES[i]} is ${h}, equalize gives ${share(computed)[i]}`));
+ assert.ok(half[0] - full[0] > 5, `the square shrinks more at strength 1: ${half[0]} vs ${full[0]}`);
+});
+test('strip honours --metric', async () => {
+ const black = file('disc-black.svg', svg('<circle cx="50" cy="50" r="50" fill="#000"/>'));
+ const grey = file('disc-grey.svg', svg('<circle cx="50" cy="50" r="50" fill="#999"/>'));
+ const heights = async metric => (await renderStrip([black, grey], { height: 64, scale: 2, strength: 1, metric })).rows.map(r => r.css.ink.height);
+ const alpha = await heights('alpha'), contrast = await heights('contrast');
+ assert.ok(Math.abs(alpha[0] - alpha[1]) <= 0.5, `equal alpha area keeps equal heights: ${alpha}`);
+ assert.ok(contrast[1] - contrast[0] > 5, `the black disc shrinks to the grey disc's contrast size: ${contrast}`);
+});
+test('strip renders at 2x by default, and a row that is not equalized says so', () => {
+ const r = cli('strip', ...SHAPES, '--out', join(tmp, 'default-scale.png'));
+ assert.equal(r.status, 0, r.stdout + r.stderr); assert.match(r.stdout, /at 2x\)/); assert.match(r.stdout, /flattened strip at 2x/);
+ const flat = cli('strip', ...SHAPES, '--sizing', 'height', '--out', join(tmp, 'flat.png'));
+ assert.equal(flat.status, 1); assert.match(flat.stdout, /not equalized/); assert.doesNotMatch(flat.stdout, /raster logos/);
+});
+test('a row smaller than one device pixel fails at once', () => {
+ const r = spawnSync(process.execPath, [fileURLToPath(new URL('./optical.mjs', import.meta.url)), 'strip', ...SHAPES, '--out', join(tmp, 'tiny.png'), '--height', '0.4'], { encoding: 'utf8', timeout: 20000 });
+ assert.equal(r.status, 1, String(r.signal)); assert.match(r.stderr, /at least 1 device pixel/);
+});
+test('no ink prints the background hint, and check goes on to the next file', async () => {
+ const hint = cli('measure', icon('triangle'), '--bg', '#fff', '--fg', '#fff');
+ assert.equal(hint.status, 1); assert.match(hint.stderr, /Pass the real background with --bg/); assert.match(hint.stderr, /no ink against this background/);
+ const empty = join(tmp, 'empty.png'), good = join(tmp, 'good.png');
+ await sharp({ create: { width: 40, height: 40, channels: 4, background: '#000' } }).png().toFile(empty);
+ await sharp({ create: { width: 40, height: 40, channels: 4, background: '#000' } }).composite([{ input: Buffer.from(svg('<rect x="10" y="10" width="20" height="20" fill="#fff"/>', 40, 40)) }]).png().toFile(good);
+ const text = cli('check', empty, good, '--bg', '#000');
+ assert.equal(text.status, 1); assert.match(text.stdout, /empty\.png\s+not measurable: no ink against this background  FAIL/); assert.match(text.stdout, /good\.png\s+off center 0\.00%.*PASS/);
+ const json = cli('check', empty, good, '--bg', '#000', '--json');
+ assert.equal(json.status, 1);
+ const rows = JSON.parse(json.stdout);
+ assert.deepEqual(rows.map(r => [r.pass, r.measurable]), [[false, false], [true, true]]);
+});
+test('frame prints the gate verdict that its exit code follows', async () => {
+ const photo = join(tmp, 'photo.png');
+ await sharp({ create: { width: 300, height: 200, channels: 4, background: '#0a0a08' } }).composite([{ input: Buffer.from(svg('<circle cx="50" cy="50" r="40" fill="#d8c0a0"/>')), left: 150, top: 40 }]).png().toFile(photo);
+ const r = cli('frame', photo, '--out', join(tmp, 'framed.png'), '--bg', '#0a0a08', '--zoom', '0.8');
+ const line = r.stdout.split('\n').filter(l => l.startsWith('off center')).at(-1);
+ assert.match(line, /(PASS|FAIL) at 1%$/); assert.doesNotMatch(r.stdout, /use check/);
+ assert.equal(r.status, line.includes('PASS') ? 0 : 1, r.stdout);
+});
+test('--bg auto and bare numbers are explicit', () => {
+ for (const command of ['place', 'strip', 'tile', 'frame']) {
+  const r = cli(command, icon('circle'), '--container', '40', '--element', '20', '--out', join(tmp, 'auto.png'), '--bg', 'auto');
+  assert.equal(r.status, 2, command); assert.match(r.stderr, /--bg auto works with measure, check, and equalize only/);
+ }
+ assert.equal(cli('measure', icon('circle'), '--bg', 'auto').status, 0);
+ const lum = JSON.parse(cli('measure', icon('circle'), '--bg', '111', '--json').stdout)[0];
+ assert.equal(lum.bgLum, 111);
+ const six = cli('measure', icon('circle'), '--bg', '111111');
+ assert.equal(six.status, 1); assert.match(six.stderr, /bare number.*leading #/);
+ assert.match(cli('--help').stdout, /bare number, which is always a luminance/);
+});
+test('printed boxes are rounded, --target takes a relative path, and --help lists every strip flag', () => {
+ const m = cli('measure', fileURLToPath(new URL('../fixtures/colour/amazon-color.svg', import.meta.url)));
+ assert.match(m.stdout, /contrast-weighted, accent discounted/); assert.doesNotMatch(m.stdout, /\d\.\d{3,}/);
+ const r = spawnSync(process.execPath, [fileURLToPath(new URL('./optical.mjs', import.meta.url)), 'strip', 'circle-fill.svg', 'star-fill.svg', 'square-fill.svg', '--target', './square-fill.svg', '--grow', '--out', join(tmp, 'target.png')], { encoding: 'utf8', cwd: ICONS });
+ assert.equal(r.status, 0, r.stdout + r.stderr);
+ const help = cli('--help').stdout;
+ for (const flag of ['--export', '--metric', '--grow', '--blend', '--strength']) assert.ok(help.includes(flag), flag);
+});
+test('place --json says whether an offset is needed', () => {
+ const none = JSON.parse(cli('place', icon('circle'), '--container', '40', '--element', '20', '--json').stdout);
+ assert.equal(none.needed, false); assert.equal('css' in none, false);
+ const some = JSON.parse(cli('place', icon('triangle'), '--container', '96', '--element', '60', '--json').stdout);
+ assert.equal(some.needed, true); assert.match(some.css, /^transform: translate\(/);
+});
+test('no script reads a file path off a URL object, which breaks on a space in the install path', async () => {
+ const { readdirSync, readFileSync } = await import('node:fs');
+ const here = fileURLToPath(new URL('./', import.meta.url));
+ for (const name of readdirSync(here).filter(n => n.endsWith('.mjs'))) assert.doesNotMatch(readFileSync(join(here, name), 'utf8'), new RegExp('\\.path' + 'name\\b'), name);
 });
