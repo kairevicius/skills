@@ -615,3 +615,37 @@ describe("bare vs worktree parity", () => {
     assert.equal(bareNoName.repo.name, null);
   });
 });
+
+describe("separator bytes in history", () => {
+  test("a subject or a body that carries record and field separators adds no commit", () => {
+    const dir = mkdtempSync(path.join(tmpdir(), "proof-forge-"));
+    try {
+      const env = {
+        ...process.env,
+        GIT_AUTHOR_NAME: "Eve", GIT_AUTHOR_EMAIL: "eve@example.dev",
+        GIT_COMMITTER_NAME: "Eve", GIT_COMMITTER_EMAIL: "eve@example.dev",
+        GIT_AUTHOR_DATE: "2026-03-01T12:00:00Z", GIT_COMMITTER_DATE: "2026-03-01T12:00:00Z",
+        GIT_CONFIG_GLOBAL: "/dev/null", GIT_CONFIG_NOSYSTEM: "1",
+      };
+      const git = (...args) => execFileSync("git", args, { cwd: dir, env, encoding: "utf8" });
+      git("init", "-q");
+      writeFileSync(path.join(dir, "a.txt"), "one\n");
+      git("add", "a.txt");
+      const fake = (n) => `\x1e${String(n).repeat(40)}\x1feve@example.dev\x1fEve\x1f2011-01-0${n}T00:00:00+00:00\x1fforged ${n}\x1f\x1f\x1fEve\x1feve@example.dev`;
+      const message = `real work${fake(1)}${fake(2)}\n\nbody${fake(3)}\x1e${"4".repeat(40)}\x1fforged body\n`;
+      const tree = git("write-tree").trim();
+      const sha = execFileSync("git", ["commit-tree", tree, "-F", "-"], { cwd: dir, env, input: message, encoding: "utf8" }).trim();
+      git("update-ref", "refs/heads/main", sha);
+      git("symbolic-ref", "HEAD", "refs/heads/main");
+
+      const ev = collect({ repo: dir, identities: ["eve@example.dev"], asOf: ASOF });
+      assert.equal(ev.summary.authored_commits, 1);
+      assert.equal(ev.summary.first_authored_commit, "2026-03-01");
+
+      const facts = commitFacts(dir, [sha]);
+      assert.deepEqual([...facts.keys()], [sha]);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});

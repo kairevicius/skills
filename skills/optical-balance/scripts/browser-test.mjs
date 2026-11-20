@@ -2,12 +2,13 @@ import { chromium } from 'playwright-core';
 import { renderPlacement, measureFile, offCenter } from './lib.mjs';
 import { mkdir, writeFile, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { tmpdir } from 'node:os';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 
 const root = new URL('../', import.meta.url);
-const fixture = new URL('fixtures/icons/triangle-fill.svg', root).pathname;
+const fixture = fileURLToPath(new URL('fixtures/icons/triangle-fill.svg', root));
 const placement = await renderPlacement(fixture, { container: 96, element: 60, plate: '#fff', fg: '#111', scale: 2 });
 const icon = await readFile(fixture, 'utf8');
 const css = `translate(${placement.offset.x}%, ${placement.offset.y}%)`;
@@ -37,10 +38,10 @@ try {
     const after = offCenter(await measureFile(join(out, 'after.png'), { bg: '#fff' }));
     assert.ok(before.pct > 1, JSON.stringify(before));
     assert.ok(after.pct <= 1, JSON.stringify(after));
-    const check = spawnSync(process.execPath, [new URL('./optical.mjs', import.meta.url).pathname, 'check', join(out, 'after.png'), '--bg', '#fff', '--json'], { encoding: 'utf8' });
+    const check = spawnSync(process.execPath, [fileURLToPath(new URL('./optical.mjs', import.meta.url)), 'check', join(out, 'after.png'), '--bg', '#fff', '--json'], { encoding: 'utf8' });
     assert.equal(check.status, 0, check.stdout + check.stderr);
     assert.equal(JSON.parse(check.stdout)[0].pass, true);
-    const amazonFile = new URL('fixtures/colour/amazon-color.svg', root).pathname;
+    const amazonFile = fileURLToPath(new URL('fixtures/colour/amazon-color.svg', root));
     const amazon = await renderPlacement(amazonFile, { container: 200, element: 112, plate: '#fff' });
     await page.evaluate(html => { document.body.insertAdjacentHTML('beforeend', html); }, `<style>#amazon{width:200px;height:200px;display:flex;align-items:center;justify-content:center;background:white}#amazon svg{width:112px;height:112px;flex:none;transform:translate(${amazon.offset.x}%,${amazon.offset.y}%)}</style><div id="amazon">${await readFile(amazonFile, 'utf8')}</div>`);
     await page.locator('#amazon').screenshot({ path: join(out, 'amazon-after.png') });

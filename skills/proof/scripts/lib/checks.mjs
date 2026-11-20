@@ -227,6 +227,7 @@ export async function runChecks(doc, { repo = null, gitMode = false, signals = f
     if (r.remote !== null && r.remote !== undefined) fail("document", null, "hygiene", "redacted_remote", "repository.remote must be null or absent when redacted");
     if (r.project?.name) fail("document", null, "hygiene", "redacted_project_name", "repository.project.name must be absent when redacted");
     if (r.project?.logo_path) fail("document", null, "hygiene", "redacted_project_logo", "repository.project.logo_path must be absent when redacted");
+    if (doc.subject?.account) fail("document", null, "hygiene", "redacted_account", "subject.account must be absent when redacted");
   } else if (typeof r.name !== "string" || r.name.length === 0) {
     fail("document", null, "hygiene", "name_required_when_not_redacted", "repository.name must be a non-empty string when not redacted");
   }

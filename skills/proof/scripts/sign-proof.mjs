@@ -283,6 +283,8 @@ async function run() {
     }
 
     const sigPath = `${proofPath}.sig`;
+    // A signature from an earlier run makes ssh-keygen stop and ask before it overwrites.
+    rmSync(sigPath, { force: true });
     // stdio is inherited (not captured) so a passphrase prompt is answerable — this is
     // the one step in this script where that matters, since it is the step that reads
     // the private key material.

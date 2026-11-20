@@ -120,6 +120,9 @@ test("redacted documents may not carry a repository or project name", () => {
 test("a noreply identity that names a different account than subject.account fails", () => {
   const doc = clone(example);
   doc.subject.identities = ["100+ada@users.noreply.github.com"];
+  // The shipped example is redacted, and a redacted proof may not name an account.
+  doc.repository.redacted = false;
+  doc.repository.name = "example/repo";
   doc.subject.account = { host: "github.com", login: "someone-else" };
   expectFail(doc, /belongs to the github\.com account ada, not subject\.account someone-else/);
   doc.subject.account = { host: "github.com", login: "Ada" };

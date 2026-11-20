@@ -97,5 +97,4 @@ cpSync(new URL('./optical-balance/dist/', import.meta.url), new URL('../_site/op
 cpSync(new URL('./proof/dist/', import.meta.url), new URL('../_site/proof/', import.meta.url), { recursive: true });
 cpSync(new URL('./character-sheet/dist/', import.meta.url), new URL('../_site/character-sheet/', import.meta.url), { recursive: true });
 cpSync(new URL('./character-sheet/examples/', import.meta.url), new URL('../_site/character-sheet/examples/', import.meta.url), { recursive: true });
-cpSync(new URL('./well/', import.meta.url), new URL('../_site/well/', import.meta.url), { recursive: true });
 console.log('Site assembly PASS: home, optical-balance, write-up, demo, proof, character-sheet');

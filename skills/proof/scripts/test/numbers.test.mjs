@@ -180,3 +180,31 @@ test("a count word inside an identifier is a name, not a count", () => {
   assert.deepEqual(countWords("Shipped in three.").map((w) => w.value), [3]);
   assert.deepEqual(countWords("A three-tier cache.").map((w) => w.value), [3]);
 });
+
+test("fullwidth and other-script digits read as the digits they show", () => {
+  assert.deepEqual(readNumbers("cut by ９０% over ١٢ files").map((t) => [t.value, t.unit]), [[90, "%"], [12, null]]);
+  assert.equal(missingNumbers("served ９０% of traffic", ["90% of traffic"]).length, 0);
+  assert.equal(missingNumbers("served ９５% of traffic", ["90% of traffic"]).length, 1);
+});
+
+test("dot-grouped thousands are a count, and a ratio is not a clock time", () => {
+  assert.deepEqual(readNumbers("1.200.000 users").map((t) => t.value), [1200000]);
+  assert.deepEqual(readNumbers("upgraded to 11.8.0").map((t) => t.value), []);
+  assert.deepEqual(readNumbers("a 20:80 split at 09:30").map((t) => t.value), [20, 80]);
+});
+
+test("larger count words and multiplier words are read", () => {
+  assert.deepEqual(countWords("fifty services, ninety tests, a billion rows, quadrupled, twice").map((w) => w.value), [50, 90, 1000000000, 4, 2]);
+});
+
+test("a token with a unit never matches a unitless count from git", () => {
+  const cls = (description, facts) => classifyNumbers(description, facts).numbers.map((n) => n.class);
+  assert.deepEqual(cls("95% faster, 95x smaller, #95, 95", { prNumber: 95 }), ["unbacked", "unbacked", "rederived", "rederived"]);
+  assert.deepEqual(cls("17ms across 17 commits", { rangeCount: 17 }), ["unbacked", "rederived"]);
+  const days = { token: "12ms", source: "summary", field: "active_days", value: 12 };
+  assert.deepEqual(cls("p95 fell to 12ms", { measures: [days] }), ["unbacked"]);
+  const share = { token: "40%", source: "summary", field: "ai_assisted_commit_share", value: 0.4 };
+  assert.deepEqual(cls("40% of commits", { measures: [share] }), ["rederived"]);
+  assert.deepEqual(cls("17ms saved", { subjects: [{ sha: "a".repeat(40), subject: "touch 17 files" }] }), ["unbacked"]);
+  assert.deepEqual(cls("17ms saved", { subjects: [{ sha: "a".repeat(40), subject: "save 17ms" }] }), ["self_reported"]);
+});

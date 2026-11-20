@@ -256,3 +256,11 @@ test("not_checkable_from_git fires on a whole-word not-checkable claim", async (
   const flags = claims.find((c) => c.id === "c1").flags;
   assert.ok(flags.some((f) => f.code === "not_checkable_from_git"));
 });
+
+test("redacted_account: a redacted proof may not name the forge account", async () => {
+  const doc = clone(example);
+  assert.equal(doc.repository.redacted, true);
+  doc.subject.account = { host: "github.com", login: "ada" };
+  const { findings } = await runChecks(doc);
+  assert.ok(codesOf(findings).includes("redacted_account"));
+});

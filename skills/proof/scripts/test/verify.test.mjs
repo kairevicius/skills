@@ -383,3 +383,60 @@ test("text addressed to an AI, or hidden in tag characters, is flagged on the cl
   assert.ok(!packProof.includes(hidden));
   assert.ok(packProof.includes("u{E0069}"), "tag characters appear escaped in the pack");
 });
+
+test("contradicted: a claim number its evidence does not hold, or a headline number no evidence holds", () => {
+  const claimDoc = baseProof();
+  claimDoc.claims[0].claim = "Fixed 4,000 typos in the widget module.";
+  const work = newWork();
+  assert.equal(run([writeProof(claimDoc, tmp, "claim-number.json"), "--work", work, "--allow-file-remote"], tmp).status, 0);
+  const v = readVerification(work);
+  assert.equal(v.outcome, "contradicted");
+  assert.match(v.reason, /1 claim states something the cited evidence does not hold/);
+
+  const headlineDoc = baseProof();
+  headlineDoc.subject.headline = "Shipped 500 features.";
+  const work2 = newWork();
+  assert.equal(run([writeProof(headlineDoc, tmp, "headline-number.json"), "--work", work2, "--allow-file-remote"], tmp).status, 0);
+  assert.equal(readVerification(work2).outcome, "contradicted");
+});
+
+test("a very long refused remote still finalizes, with the reason cut to the schema's limit", () => {
+  const doc = baseProof();
+  doc.repository.remote = `https://${"a".repeat(240)}.example/x/y`;
+  const work = newWork();
+  assert.equal(run([writeProof(doc, tmp, "long-remote.json"), "--work", work], tmp).status, 0);
+  const v = readVerification(work);
+  assert.equal(v.outcome, "not_reproducible");
+  assert.ok(v.reason.length <= 400, String(v.reason.length));
+  writeFileSync(path.join(work, "verification.json"), JSON.stringify(fillAudits(v), null, 2));
+  const fin = run(["--finalize", work], tmp);
+  assert.equal(fin.status, 0, fin.out);
+});
+
+test("inconclusive: a signature is present but the account's keys cannot be read", () => {
+  const keyDir = mkdtempSync(path.join(os.tmpdir(), "proof-verify-nokeys-"));
+  const key = path.join(keyDir, "id_ed25519");
+  execFileSync("ssh-keygen", ["-q", "-t", "ed25519", "-N", "", "-C", "ada-test", "-f", key]);
+  const proofFile = writeProof(baseProof(), keyDir, "proof.json");
+  execFileSync("ssh-keygen", ["-Y", "sign", "-f", key, "-n", "proof-skill", proofFile], { stdio: "ignore" });
+  const work = newWork();
+  const res = run([proofFile, "--work", work, "--allow-file-remote", "--keys-file", path.join(keyDir, "missing.keys")], tmp);
+  assert.equal(res.status, 0, res.out);
+  const v = readVerification(work);
+  assert.equal(v.outcome, "inconclusive");
+  assert.match(v.reason, /signature could not be checked/);
+});
+
+test("variation selectors and other invisible characters are escaped in the pack and flagged", () => {
+  const cps = [0xe0100, 0xe01ef, 0xfe00, 0x061c, 0x00ad, 0x180e, 0x3164];
+  const hidden = cps.map((cp) => String.fromCodePoint(cp)).join("");
+  const doc = baseProof();
+  doc.claims[0].claim = `Wrote the widget${hidden} module ✔️.`;
+  const work = newWork();
+  assert.equal(run([writeProof(doc, tmp, "selectors.json"), "--work", work, "--allow-file-remote"], tmp).status, 0);
+  const packProof = readFileSync(path.join(work, "pack", "proof.json"), "utf8");
+  for (const cp of cps) assert.ok(!packProof.includes(String.fromCodePoint(cp)), cp.toString(16));
+  assert.ok(packProof.includes("u{E0100}"));
+  assert.ok(packProof.includes("✔️"), "an emoji keeps its own variation selector");
+  assert.ok(readVerification(work).claims[0].flags.map((f) => f.code).includes("hidden_characters"));
+});

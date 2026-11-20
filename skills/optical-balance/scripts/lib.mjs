@@ -7,6 +7,7 @@
  */
 import sharp from "sharp";
 import { readFile } from "node:fs/promises";
+import { resolve } from "node:path";
 
 const positive = (n, name) => { if (!Number.isFinite(n) || n <= 0) throw new Error(`${name} must be positive and finite`); };
 
@@ -126,9 +127,11 @@ export function parseColor(input) {
     if (input === undefined || input === null || input === "") return parseColor("255");
     const s = String(input).trim().toLowerCase();
     if (s in NAMED && NAMED[s]) return parseColor(NAMED[s]);
+    if (s === "auto") throw new Error("auto reads a file's own backdrop, so it works only as --bg for measure, check, and equalize. Give the colour here");
+    // A bare number is always a luminance. A hex colour made of digits needs its #, as in '#111'.
     if (/^\d+(\.\d+)?$/.test(s)) {
         const v = Number(s);
-        if (!Number.isFinite(v) || v > 255) throw new Error("luminance must be 0..255");
+        if (!Number.isFinite(v) || v > 255) throw new Error(`"${input}" is a bare number, so it is read as a luminance, which must be 0..255. Write a hex colour with a leading #`);
         return { r: v, g: v, b: v, lum: v };
     }
     const hex = s.replace(/^#/, "");
@@ -284,7 +287,7 @@ export function inputWarnings(raw, bg) {
     }
     const warnings = [];
     const bgText = `background ${toHex(color)} (luminance ${Math.round(color.lum)})`;
-    if (visible === 0) warnings.push("The image has no visible pixels.");
+    if (visible === 0) warnings.push("The image has no visible pixels, so there is no ink to measure.");
     else if (ink === 0) warnings.push(`No ink differs from the ${bgText}. The element may be the same color as the background, for example a white or currentColor icon. Pass the real background with --bg.`);
     else if (maxContrast < LOW_CONTRAST) warnings.push(`The element barely shows on the ${bgText}: its strongest contrast is ${maxContrast.toFixed(2)}. Check --bg.`);
     const own = detectBackground(raw);
@@ -424,6 +427,19 @@ export function measure(raw, bgLum, { blend = CENTER_BLEND, forceDiscount = fals
 }
 
 /**
+ * `measure`, for a file. When there is no ink, the error carries the file and the input
+ * warnings, so a caller can print the hint (usually: pass the real background) with it.
+ */
+function measureInk(raw, color, file, warnings, options) {
+    try {
+        return measure(raw, color, options);
+    } catch (error) {
+        if (/^no ink/.test(error.message)) Object.assign(error, { code: "NO_INK", file, warnings: warnings() });
+        throw error;
+    }
+}
+
+/**
  * Measure a file against a background (`bg` may be `auto`). The result carries
  * `warnings` for inputs that would otherwise give a quiet wrong answer, and
  * `full`, the file's size before any crop, so a caller can size the file as placed.
@@ -432,8 +448,9 @@ export async function measureFile(file, { bg = "255", trim = false, maxEdge, ble
     const loaded = await loadRaster(file, { maxEdge, fg });
     const { color, notes } = resolveBackground(bg, loaded.raw);
     const { png, raw } = trim ? await cropToInk(loaded.png, loaded.raw, color, tolerance) : loaded;
-    const m = measure(raw, color, { blend, backgroundContrast: tolerance });
-    return { file, format: loaded.format, color, png, raw, full: { width: loaded.raw.width, height: loaded.raw.height }, ...m, warnings: [...notes, ...inputWarnings(loaded.raw, color)] };
+    const warnings = () => [...notes, ...inputWarnings(loaded.raw, color)];
+    const m = measureInk(raw, color, file, warnings, { blend, backgroundContrast: tolerance });
+    return { file, format: loaded.format, color, png, raw, full: { width: loaded.raw.width, height: loaded.raw.height }, ...m, warnings: warnings() };
 }
 
 /** Distance from the visual center to the box center, as px and as a percentage of the shorter side. */
@@ -480,6 +497,7 @@ export async function renderPlacement(file, {
     const art = await sharp(loaded.png).resize(pw, ph, { fit: "fill", kernel: "lanczos3" }).ensureAlpha().png().toBuffer();
     const artRaw = await toRaw(art);
     const warnings = inputWarnings(artRaw, color);
+    measureInk(artRaw, color, file, () => warnings, { blend });
     // An opaque file always looks centered as a whole, so the gate on the container says
     // nothing about the artwork inside it. Measure that artwork against its own backdrop.
     const own = detectBackground(artRaw);
@@ -546,7 +564,7 @@ export async function renderFrame(file, { size = 256, bg = "0", tolerance = 0.15
     const color = parseColor(bg);
     const { png, raw } = await loadRaster(file, { maxEdge: 2048 });
     const options = { backgroundContrast: tolerance, forceDiscount: true };
-    const source = measure(raw, color, options);
+    const source = measureInk(raw, color, file, () => [`Nothing contrasts with the backdrop ${toHex(color)} at tolerance ${tolerance}. Pass the backdrop colour with --bg, or lower --tolerance.`], options);
     positive(size, "size"); positive(zoom, "zoom");
     if (zoom > 1 || !["visual", "box"].includes(centering)) throw new Error("invalid framing options");
     const side = Math.max(1, Math.round(Math.min(raw.width, raw.height) * zoom));
@@ -623,7 +641,8 @@ export function equalize(items, { height = 40, maxWidth = Infinity, strength = 0
     if (target === "fit") goal = Math.min(...sizes);
     else if (target === "median") goal = median(sizes);
     else {
-        const anchor = rows.find((r) => r.file === target || (r.file && r.file.endsWith("/" + target)) || r.name === target);
+        const isPath = (v) => typeof v === "string";
+        const anchor = rows.find((r) => r.file === target || (isPath(r.file) && (r.file.endsWith("/" + target) || resolve(r.file) === resolve(target))) || r.name === target);
         if (!anchor) throw new Error(`equalize: no element named "${target}" to anchor on`);
         goal = anchor.baselineObjective;
     }
@@ -669,7 +688,7 @@ export async function renderTile(file, { size = 256, art = 0.76, plate = "#fffff
     const trimmed = await sharp(png).metadata();
     const enlarged = Math.max(raw.width / trimmed.width, raw.height / trimmed.height);
     if (format !== "svg" && enlarged > 1.05) warnings.push(`The raster source is enlarged ${enlarged.toFixed(1)}x to fill the art box, so its edges blur. Use an SVG or a larger PNG, or bake at the device pixel ratio with a larger --size.`);
-    const m = measure(raw, color, { blend, forceDiscount: centering === "forced" });
+    const m = measureInk(raw, color, file, () => warnings, { blend, forceDiscount: centering === "forced" });
     const anchor = centering === "visual" || centering === "forced" ? m.visual
         : centering === "mass" ? m.massCentroid
         : centering === "alpha" ? m.alphaCentroid
@@ -741,9 +760,12 @@ export async function renderStrip(files, {
     const css = { height, gap, padding, paddingY, rowGap };
     [height, gap, padding, paddingY, rowGap, maxWidth] = [height, gap, padding, paddingY, rowGap, maxWidth].map((v) => v * scale);
     if (canvasWidth) canvasWidth *= scale;
+    // An ink box is at least one device pixel, so a smaller row or width limit can never be met.
+    if (height < 1 || maxWidth < 1) throw new Error(`strip --height and --max-width must be at least 1 device pixel; ${css.height}px at ${scale}x is ${height < 1 ? height : maxWidth}`);
     const loaded = await Promise.all(files.map(async (file) => {
         const { raw, full, format } = await loadRaster(file, { trim: true, bg, fg });
-        return { file, format, fullPng: full.png, full: { width: full.width, height: full.height }, ...measure(raw, color), warnings: inputWarnings(full.raw, color) };
+        const warnings = inputWarnings(full.raw, color);
+        return { file, format, fullPng: full.png, full: { width: full.width, height: full.height }, ...measureInk(raw, color, file, () => warnings), warnings };
     }));
     const rows = equalize(loaded, { height, maxWidth, strength: sizing === "visual" ? strength : 0, target, metric, grow });
     const perRow = Math.max(1, Math.min(columns, rows.length));
@@ -762,7 +784,8 @@ export async function renderStrip(files, {
     const scaled = [];
     for (const r of rows) {
         let s = await render(r, r.scale);
-        while (s.m.inkBox.width > maxWidth || (!grow && s.m.inkBox.height > height)) {
+        for (let tries = 0; s.m.inkBox.width > maxWidth || (!grow && s.m.inkBox.height > height); tries++) {
+            if (tries === 24) throw new Error(`cannot fit ${r.file} into a ${css.height}px row at ${scale}x; raise --height, --max-width, or --scale`);
             const k = s.k * Math.min(maxWidth / s.m.inkBox.width, grow ? 1 : height / s.m.inkBox.height) * 0.99;
             s = await render(r, k);
         }
@@ -771,17 +794,27 @@ export async function renderStrip(files, {
 
     // Correct the size residual the way placement corrects its position. Resampling moves
     // an ink box by a pixel, which is several percent of a 24px logo, so measure each file
-    // as rendered and rescale it toward the anchor's measured perceived size until the
-    // sizes stop moving. The anchor is the element the target names: the smallest for
-    // `fit`, the named file or the median otherwise.
-    if (sizing === "visual" && scaled.length > 1) {
+    // as rendered and rescale it toward the size the requested rule gives it, until the
+    // sizes stop moving. The rule is the one equalize() used: `objective` is the quantity it
+    // compares, and `strength` is how far each logo moves from equal height toward the anchor.
+    // The anchor is the element the target names: the smallest for `fit`, the named file or
+    // the median otherwise. Strength 0 asks for equal heights, which the fit above already gives.
+    if (sizing === "visual" && strength > 0 && scaled.length > 1) {
+        const objective = (s) => {
+            const size = s.m.sizes[metric];
+            return strength === 0.5 ? Math.sqrt(size * s.m.inkBox.height) : size;
+        };
         const anchors = scaled.filter((s) => Math.abs(s.r.correction - 1) < 1e-3 && (target === "fit" || !s.r.clamped));
         if (anchors.length) {
-            const goal = Math.min(...anchors.map((s) => s.m.perceivedSize));
+            const goal = Math.min(...anchors.map(objective));
             for (let pass = 0; pass < 4; pass++) {
                 let moved = false;
                 for (const [i, s] of scaled.entries()) {
-                    const ratio = goal / s.m.perceivedSize;
+                    const now = objective(s);
+                    // At strength 0.5 and 1 every logo meets the anchor. In between, a logo keeps
+                    // (1 - strength) of its own equal-height size, measured on this render.
+                    const wanted = strength === 0.5 || strength === 1 ? goal : Math.pow((now * s.r.baseline) / s.k, 1 - strength) * Math.pow(goal, strength);
+                    const ratio = wanted / now;
                     if (Math.abs(ratio - 1) < 0.004) continue;
                     const next = await render(s.r, s.k * ratio);
                     if (next.W === s.W && next.H === s.H) continue;
@@ -846,6 +879,8 @@ export async function renderStrip(files, {
     const perceived = scaled.map((s) => s.r.perceived);
     return {
         png, rows, width, height: totalHeight, rowHeight: height + rowGap, baselines, bg: color, scale, css,
+        // The gate is on perceived size, which only the default rule equalizes.
+        equalized: sizing === "visual" && strength === 0.5 && metric === "contrast",
         verify: { perceived, spread: sizeSpread(perceived), reason: sizeSpread(perceived) > GATES.sizeSpreadPct ? "incompatible constraints or device-pixel rounding; increase resolution or relax limits" : null },
     };
 }
@@ -858,7 +893,8 @@ const pct = (n) => `${n >= 0 ? "+" : ""}${n.toFixed(1)}%`;
  * center line; use it only when the image is a rendered container, because the off
  * center of a bare element is the size of its correction, not a failure.
  */
-export function formatMeasure(m, label = "", { verdict = false, css = true } = {}) {
+export function formatMeasure(m, label = "", { verdict = false, css = true, note = "(to judge a rendered result, use check)" } = {}) {
+    const side = (n) => (Number.isInteger(n) ? String(n) : f1(n));
     const lines = [];
     if (label) lines.push(label);
     lines.push(`image            ${m.width}x${m.height}, background ${toHex(m.bg)} (luminance ${f1(m.bgLum)})`);
@@ -866,7 +902,7 @@ export function formatMeasure(m, label = "", { verdict = false, css = true } = {
     lines.push(`box center       ${f1(m.box.x)}, ${f1(m.box.y)}`);
     lines.push(`alpha centroid   ${f1(m.alphaCentroid.x)}, ${f1(m.alphaCentroid.y)}`);
     lines.push(`mass centroid    ${f1(m.mass.x)}, ${f1(m.mass.y)}${m.discounted ? "  (contrast-weighted, accent discounted)" : "  (accent discount off: faint ink is " + Math.round(Math.max(m.accentShare, m.lumaAccentShare) * 100) + "% of the mark, alpha centroid used)"}`);
-    lines.push(`extent center    ${f1(m.extent.x)}, ${f1(m.extent.y)}  (box of the ink the eye reads, ${m.extentBox.width}x${m.extentBox.height})`);
+    lines.push(`extent center    ${f1(m.extent.x)}, ${f1(m.extent.y)}  (box of the ink the eye reads, ${side(m.extentBox.width)}x${side(m.extentBox.height)})`);
     lines.push(`visual center    ${f1(m.visual.x)}, ${f1(m.visual.y)}  (extent moved ${m.blend} of the way to mass)`);
     lines.push(`faint-ink share  colour ${Math.round(m.accentShare * 100)}%, luma ${Math.round(m.lumaAccentShare * 100)}% below contrast ${ACCENT_CONTRAST}`);
     lines.push(`visual size      ${f1(m.sizes.contrast)}px (sqrt of contrast-weighted ink area)`);
@@ -874,8 +910,7 @@ export function formatMeasure(m, label = "", { verdict = false, css = true } = {
     lines.push(`offset to apply  x ${m.offset.x >= 0 ? "+" : ""}${f1(m.offset.x)}px (${pct(m.offsetPct.x)}), y ${m.offset.y >= 0 ? "+" : ""}${f1(m.offset.y)}px (${pct(m.offsetPct.y)})  (positive y moves the element down)`);
     if (css) lines.push(`css              transform: translate(${m.offsetPct.x.toFixed(2)}%, ${m.offsetPct.y.toFixed(2)}%)  (percent of this image's own box, as placed)`);
     const off = offCenter(m);
-    if (m.alphaArea === 0) lines.push("off center       not measurable: no ink against this background");
-    else if (verdict) lines.push(`off center       ${off.pct.toFixed(2)}% of the shorter side (${f1(off.px)}px)  ${off.pct <= GATES.offCenterPct ? "PASS" : "FAIL"} at ${GATES.offCenterPct}%`);
-    else lines.push(`off center       ${off.pct.toFixed(2)}% of the shorter side (${f1(off.px)}px)  (to judge a rendered result, use check)`);
+    if (verdict) lines.push(`off center       ${off.pct.toFixed(2)}% of the shorter side (${f1(off.px)}px)  ${off.pct <= GATES.offCenterPct ? "PASS" : "FAIL"} at ${GATES.offCenterPct}%`);
+    else lines.push(`off center       ${off.pct.toFixed(2)}% of the shorter side (${f1(off.px)}px)${note ? `  ${note}` : ""}`);
     return lines.join("\n");
 }

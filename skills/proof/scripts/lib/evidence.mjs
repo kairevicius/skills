@@ -9,6 +9,7 @@
 // separate because they need different scope: merge commits (PR detection) and the
 // whole-repo, all-authors context used for `subject_rank`.
 import { execFileSync } from "node:child_process";
+import { randomBytes } from "node:crypto";
 import { readFileSync, mkdtempSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { tmpdir, devNull } from "node:os";
@@ -105,8 +106,20 @@ export const TEST_PATH_RE = /(^|\/)(__tests__|tests?|e2e|evals?)\/|\.(test|spec|
 // commitFacts() can reuse this exact format + parseMainLog, rather than a
 // second per-purpose format string the main traversal and commitFacts could
 // silently drift out of sync on. The main traversal ignores the three fields.
-const FORMAT =
-  "%x1e%H%x1f%ae%x1f%an%x1f%aI%x1f%s%x1f%(trailers:key=Co-authored-by,valueonly,separator=|)%x1f%P%x1f%cn%x1f%ce";
+//
+// A commit subject, an author name and a body may hold almost any byte,
+// the bare separators included. So each call frames its records with a random nonce the
+// history cannot know: a subject that carries its own \x1e or \x1f stays one field, and
+// cannot add a record or shift a field.
+export function logFraming() {
+  const nonce = randomBytes(16).toString("hex");
+  const rs = `\x1e${nonce}\x1e`;
+  const fs = `\x1f${nonce}\x1f`;
+  const RS = `%x1e${nonce}%x1e`;
+  const FS = `%x1f${nonce}%x1f`;
+  const fields = ["%H", "%ae", "%an", "%aI", "%s", "%(trailers:key=Co-authored-by,valueonly,separator=|)", "%P", "%cn", "%ce"];
+  return { rs, fs, format: RS + fields.join(FS), bodyFormat: `${RS}%H${FS}%b` };
+}
 
 // ---------------------------------------------------------------------------
 // glob matching — one hand-rolled, dependency-free engine for every Node version.
@@ -633,14 +646,14 @@ function dequotePath(raw) {
 // for a rename can be abbreviated ("dir/{old => new}/file" or "old => new" in full) —
 // rather than parse that notation, we take the path from the unambiguous raw line and
 // use numstat only for the added/removed counts, ignoring its path field entirely.
-export function parseMainLog(raw) {
+export function parseMainLog(raw, { rs, fs }) {
   const records = [];
-  const chunks = raw.split("\x1e").slice(1);
+  const chunks = raw.split(rs).slice(1);
   for (const chunk of chunks) {
     const nlIdx = chunk.indexOf("\n");
     const metaLine = nlIdx === -1 ? chunk : chunk.slice(0, nlIdx);
     const bodyRaw = nlIdx === -1 ? "" : chunk.slice(nlIdx + 1);
-    const [sha, ae, an, aI, subject, trailersRaw, parentsRaw, cn, ce] = metaLine.split("\x1f");
+    const [sha, ae, an, aI, subject, trailersRaw, parentsRaw, cn, ce] = metaLine.split(fs);
 
     const rawLines = [];
     const numstatLines = [];
@@ -1053,6 +1066,7 @@ export function collect(opts = {}) {
   // filter below (isSubject, byte-equality mod ASCII case) is what actually decides
   // authorship; the prefilter only keeps the traversal from reading commits that can't
   // possibly match.
+  const framing = logFraming();
   const mainArgs = [
     "log",
     "--no-merges",
@@ -1062,13 +1076,13 @@ export function collect(opts = {}) {
     "--no-ext-diff",
     "-M50%",
     "--date=iso-strict",
-    `--format=${FORMAT}`,
+    `--format=${framing.format}`,
     "-F",
     "-i",
     ...identities.map((id) => `--author=${id}`),
     headSha,
   ];
-  let records = parseMainLog(runGit(repo, mainArgs, { attrSource: headSha }));
+  let records = parseMainLog(runGit(repo, mainArgs, { attrSource: headSha }), framing);
   records = records.filter((r) => isSubject(r.authorEmail, identities));
   // --since is deliberately NOT passed to git here. Given a bare YYYY-MM-DD, git's
   // approxidate fills in the missing time-of-day from the CURRENT wall-clock time
@@ -1211,6 +1225,7 @@ export function commitFacts(repo, shas, { exclude = DEFAULT_EXCLUDES } = {}) {
   const existingShas = resolveExistingCommits(repo, uniqueShas);
   if (existingShas.length === 0) return result;
 
+  const framing = logFraming();
   const statsArgs = [
     "log",
     "--no-walk=unsorted",
@@ -1219,21 +1234,21 @@ export function commitFacts(repo, shas, { exclude = DEFAULT_EXCLUDES } = {}) {
     "--no-textconv",
     "--no-ext-diff",
     "-M50%",
-    `--format=${FORMAT}`,
+    `--format=${framing.format}`,
     ...existingShas,
   ];
-  const records = parseMainLog(runGit(repo, statsArgs));
+  const records = parseMainLog(runGit(repo, statsArgs), framing);
 
   // %b (body, excluding the subject line) fetched separately from %s (subject, already
-  // in FORMAT above): jamming raw multi-line body text into the same %x1f-delimited,
+  // in the framed format above): jamming raw multi-line body text into the same %x1f-delimited,
   // one-line-per-commit record would corrupt the diff-line classification that record
   // parsing depends on (an ordinary body line can itself start with ":" or "N\tN\t...").
-  const bodyRaw = runGit(repo, ["log", "--no-walk=unsorted", "--format=%x1e%H%x1f%b", ...existingShas]);
+  const bodyRaw = runGit(repo, ["log", "--no-walk=unsorted", `--format=${framing.bodyFormat}`, ...existingShas]);
   const bodies = new Map();
-  for (const chunk of bodyRaw.split("\x1e").slice(1)) {
-    const sepIdx = chunk.indexOf("\x1f");
+  for (const chunk of bodyRaw.split(framing.rs).slice(1)) {
+    const sepIdx = chunk.indexOf(framing.fs);
     const sha = chunk.slice(0, sepIdx);
-    let body = chunk.slice(sepIdx + 1);
+    let body = chunk.slice(sepIdx + framing.fs.length);
     if (body.endsWith("\n")) body = body.slice(0, -1); // git log's own per-record newline
     bodies.set(sha, body);
   }

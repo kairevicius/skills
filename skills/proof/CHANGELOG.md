@@ -182,6 +182,33 @@ limit); credentialed private-repo verification; email binding for non-noreply Gi
 and Codeberg addresses; the previous ≤ 1% cross-version tolerance, replaced outright
 by the Inconclusive outcome pending a real drift measurement.
 
+Fixes after release
+
+The schema is unchanged, so a document stays 0.3.0. These change what the validator
+rejects and what verify reports.
+
+- Log records are framed with a random nonce for each run. A commit subject or body that
+  carries the separator bytes can no longer add a commit or shift a field.
+- Verify reports Contradicted when a claim states a number its cited evidence does not
+  hold, uses a count word, or cites nothing, and when a headline or narrative number
+  appears in no evidence description. Before, only evidence findings changed the outcome.
+- A number with a unit ("17ms", "95x", "95%") no longer matches a unitless count from git:
+  a range's commit count, a diff stat, a pull request number, or a measure. "%" matches
+  only a measure whose field is a share.
+- Numbers in fullwidth or other-script digits are read. `1.200.000` reads as a count, and
+  `20:80` reads as two numbers. More count words are rejected: thirty to ninety, billion,
+  trillion, quadrupled, quintupled, twice, thrice, and the "-fold" words.
+- `redacted_account`: a redacted proof may not carry `subject.account`.
+- A signature whose account keys cannot be fetched makes the outcome Inconclusive. Before,
+  it read as an absent signature.
+- `verified.md` and `proof.md` escape Markdown and HTML in the candidate's text and fold
+  line breaks, so a field cannot forge a heading, a section, a link, or an image.
+- More invisible characters are escaped and flagged: variation selectors, the Arabic
+  letter mark, the soft hyphen, the Mongolian vowel separator, and the Hangul fillers.
+- `--finalize` no longer fails when a refused remote or a git error makes the reason
+  longer than 400 characters.
+- `sign-proof.mjs` replaces an existing `proof.json.sig`.
+
 ## 0.2.0
 
 Deterministic pipeline: evidence extraction, validation, and rendering are

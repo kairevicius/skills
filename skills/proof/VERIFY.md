@@ -9,7 +9,7 @@ outcome means, and how to audit a claim once `verify-proof.mjs` hands you the pa
 | Outcome | When | Read it as |
 |---|---|---|
 | Reproduced | The allowed public host fetched; `head_sha` sits inside a fetched branch or tag; every mechanical check passed | Every number and reference in the proof checks out against the public repository |
-| Contradicted | Something in the evidence register is false: a ref missing, unreachable, or not the subject's; a history-derived count differs; an evidence number unbacked; a path never touched | A real negative signal, reported as "k of n items" |
+| Contradicted | Something in the evidence register is false: a ref missing, unreachable, or not the subject's; a history-derived count differs; an evidence number unbacked; a path never touched; a claim or the headline states a number no cited evidence holds | A real negative signal, reported as "k of n items" |
 | Inconclusive | A network error or timeout; git older than 2.40; the signature could not be checked here; only a diff-derived count (lines or files changed) differs, and the proof records a different git version than yours | Not a verdict — re-run it, or ask the candidate, before you draw any conclusion |
 | Not reproducible | Redacted; no remote; scheme or host not allowed; the clone was refused (private); `head_sha` is on no public branch or tag | Neutral, not a demerit |
 
@@ -111,6 +111,9 @@ wrote resolves to something in the pack.
 
 - **bound** — a valid signature by a key on `subject.account`, and every email in
   `subject.identities` belongs to that account.
+  An email is bound only when it is the forge's noreply address for that account,
+  such as `<id>+<login>@users.noreply.github.com`. The scripts have no way to look up
+  the owner of any other email, so a signed proof whose commits use one stays unbound.
 - **unbound** — no signature, or an email couldn't be bound. This does not mean the
   claims are false. It means the applicant's ownership of those email addresses was
   never proven — the work may be entirely theirs, sent without signing.

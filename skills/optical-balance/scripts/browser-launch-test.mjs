@@ -4,11 +4,12 @@ import { spawnSync } from 'node:child_process';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const missing = mkdtempSync(join(tmpdir(), 'optical-missing-browser-'));
 for (const [name, override] of [['default resolution', ''], ['explicit override', join(missing, 'chromium')]]) {
     test(`${name} reports how to install a missing browser`, () => {
-        const result = spawnSync(process.execPath, [new URL('./browser-test.mjs', import.meta.url).pathname], {
+        const result = spawnSync(process.execPath, [fileURLToPath(new URL('./browser-test.mjs', import.meta.url))], {
             encoding: 'utf8',
             env: { ...process.env, PLAYWRIGHT_BROWSERS_PATH: missing, OPTICAL_CHROMIUM: override },
         });

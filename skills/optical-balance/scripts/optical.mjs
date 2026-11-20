@@ -4,19 +4,25 @@
  *
  *   node optical.mjs measure  <image...> [--bg 255|#hex|auto] [--trim] [--blend 0.5] [--tolerance 0.02] [--json]
  *   node optical.mjs place    <image> --container 96[x40] --element 72[x24] [--plate #hex] [--shape rect|circle]
- *                             [--offset auto|<x%>,<y%>] [--scale 4] [--out pair.png] [--json]
+ *                             [--offset auto|<x%>,<y%>] [--blend 0.5] [--scale 4] [--out pair.png] [--json]
  *   node optical.mjs check    <rendered.png> --bg <#hex|lum|auto> [--max 1] [--json]
  *   node optical.mjs check    --spread <image...> [--bg #hex] [--max 3] [--json]
- *   node optical.mjs equalize <image...> [--height 40] [--max-width N] [--bg #hex] [--strength 0.5]
- *                             [--target fit|median|<file>] [--grow] [--json]
+ *   node optical.mjs equalize <image...> [--height 40] [--max-width N] [--bg #hex|auto] [--strength 0.5]
+ *                             [--metric contrast|alpha|mass] [--target fit|median|<file>] [--grow] [--json]
  *   node optical.mjs strip    <image...> --out strip.png [--height 40] [--gap 48] [--bg #fff] [--scale 2]
- *                             [--max-width N] [--sizing visual|height] [--centering visual|box] [--target ...] [--json]
+ *                             [--max-width N] [--sizing visual|height] [--centering visual|box]
+ *                             [--strength 0.5] [--metric contrast|alpha|mass] [--target fit|median|<file>] [--grow]
+ *                             [--export <dir>] [--json]
  *   node optical.mjs tile     <image> --out tile.png [--size 256] [--art 0.76] [--plate #fff] [--centering visual|box]
+ *                             [--blend 0.5] [--json]
  *   node optical.mjs frame    <photo> --out avatar.png [--size 256] [--bg #hex] [--tolerance 0.15] [--zoom 1] [--circle]
  *
  * Run it from any directory: sharp resolves from this file's folder. Warnings go to
  * stderr, results to stdout. Rendering commands and `check` exit with code 1 when a gate fails.
  * Use --fg '#hex' to resolve currentColor SVGs for the foreground colour.
+ * A colour is a hex with its #, as in '#111', or a bare number, which is always a luminance
+ * from 0 to 255. `--bg auto` reads an opaque file's own backdrop; only measure, check, and
+ * equalize accept it. strip gates the size spread only at the default --strength and --metric.
  */
 import { parseArgs } from "node:util";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -85,6 +91,7 @@ for (const key of ["gap", "max", "blend", "strength", "tolerance"]) if (o[key] !
 for (const key of ["blend", "strength", "art", "zoom"]) if (Number(o[key]) > 1) fail(`--${key} must be at most 1`);
 if (Number(o.tolerance) >= 1) fail("--tolerance must be below 1");
 for (const [key, values] of Object.entries({ shape: ["rect", "circle"], sizing: ["visual", "height"], centering: ["visual", "box", "mass", "alpha", "forced"], metric: ["contrast", "alpha", "mass"] })) if (o[key] !== undefined && !values.includes(o[key])) fail(`unknown --${key}: ${o[key]}`);
+if (o.bg?.trim().toLowerCase() === "auto" && ["place", "strip", "tile", "frame"].includes(command)) fail(`--bg auto works with measure, check, and equalize only. Give ${command} the colour the element renders on, for example --bg '#111'.`);
 if (o.centering && ["strip", "frame"].includes(command) && !["visual", "box"].includes(o.centering)) fail(`unknown --centering for ${command}`);
 
 const num = (v, d) => {
@@ -136,15 +143,16 @@ try {
                 .composite([{ input: p.before.png, left: 0, top: 0 }, { input: p.after.png, left: w + gap, top: 0 }]).png().toFile(o.out);
         }
         const label = offset === "auto" ? "optical" : "given offset";
+        // A placement that already passes needs no offset: a sub-pixel value here is rounding, not a correction.
+        const needed = !(offset === "auto" && p.before.pct <= GATES.offCenterPct);
         if (o.json) {
-            console.log(JSON.stringify(plain({ ...p, before: { pct: p.before.pct, px: p.before.px }, after: { pct: p.after.pct, px: p.after.px }, css: `transform: translate(${p.offset.x.toFixed(2)}%, ${p.offset.y.toFixed(2)}%);` }), null, 2));
+            console.log(JSON.stringify(plain({ ...p, before: { pct: p.before.pct, px: p.before.px }, after: { pct: p.after.pct, px: p.after.px }, needed, ...(needed ? { css: `transform: translate(${p.offset.x.toFixed(2)}%, ${p.offset.y.toFixed(2)}%);` } : {}) }), null, 2));
         } else {
             console.log(`element          ${p.element.width.toFixed(1)}x${p.element.height.toFixed(1)}px in a ${p.container.width}x${p.container.height}px container, plate ${plate}, rendered at ${p.scale}x`);
             console.log(`geometric        off center ${p.before.pct.toFixed(2)}% (${p.before.px.toFixed(2)}px)  ${verdict(p.before.pct, GATES.offCenterPct)}`);
             console.log(`${label.padEnd(16)} off center ${p.after.pct.toFixed(2)}% (${p.after.px.toFixed(2)}px)  ${verdict(p.after.pct, GATES.offCenterPct)}`);
             console.log(`offset           x ${sign(p.offset.x)}% (${sign(p.offset.px.x)}px), y ${sign(p.offset.y)}% (${sign(p.offset.px.y)}px) of the element box`);
-            // A placement that already passes needs no offset: a sub-pixel value here is rounding, not a correction.
-            if (offset === "auto" && p.before.pct <= GATES.offCenterPct) console.log("css              none needed: geometric centering is already within the gate. Leave the layout as it is.");
+            if (!needed) console.log("css              none needed: geometric centering is already within the gate. Leave the layout as it is.");
             else console.log(`css              transform: translate(${p.offset.x.toFixed(2)}%, ${p.offset.y.toFixed(2)}%);`);
             if (p.inside) {
                 console.log(`inside backdrop  the file has its own ${p.inside.backdrop} backdrop, so the lines above center the backdrop. The artwork inside it is ${p.inside.pct.toFixed(2)}% off center  ${verdict(p.inside.pct, GATES.offCenterPct)}`);
@@ -170,15 +178,25 @@ try {
         let failed = false;
         const out = [];
         for (const file of files) {
-            const m = await measureFile(file, { fg: o.fg, bg: o.bg });
+            let m;
+            try {
+                m = await measureFile(file, { fg: o.fg, bg: o.bg });
+            } catch (error) {
+                // With no ink against the background there is nothing to verify, so this file
+                // cannot pass. Report it and go on to the next one.
+                if (error.code !== "NO_INK") throw error;
+                warn(file, error.warnings);
+                failed = true;
+                out.push({ file, max, pass: false, measurable: false, reason: error.message });
+                if (!o.json) console.log(`${basename(file).padEnd(24)} not measurable: ${error.message}  FAIL`);
+                continue;
+            }
             warn(file, m.warnings);
-            // With no ink against the background there is nothing to verify, so it cannot pass.
-            const off = offCenter(m), ok = m.alphaArea > 0 && off.pct <= max;
+            const off = offCenter(m), ok = off.pct <= max;
             failed ||= !ok;
-            out.push({ file, pct: round(off.pct), px: round(off.px), max, pass: ok, residual: { x: round(m.offset.x), y: round(m.offset.y) } });
+            out.push({ file, pct: round(off.pct), px: round(off.px), max, pass: ok, measurable: true, residual: { x: round(m.offset.x), y: round(m.offset.y) } });
             if (o.json) continue;
-            if (m.alphaArea === 0) console.log(`${basename(file).padEnd(24)} not measurable: no ink against this background  FAIL`);
-            else console.log(`${basename(file).padEnd(24)} off center ${off.pct.toFixed(2)}% (${off.px.toFixed(2)}px)  ${verdict(off.pct, max)}${ok ? "" : `  residual to correct: x ${sign(m.offset.x, 1)}px, y ${sign(m.offset.y, 1)}px`}`);
+            console.log(`${basename(file).padEnd(24)} off center ${off.pct.toFixed(2)}% (${off.px.toFixed(2)}px)  ${verdict(off.pct, max)}${ok ? "" : `  residual to correct: x ${sign(m.offset.x, 1)}px, y ${sign(m.offset.y, 1)}px`}`);
         }
         if (o.json) console.log(JSON.stringify(out, null, 2));
         process.exit(failed ? 1 : 0);
@@ -213,7 +231,7 @@ try {
         const s = await renderStrip(files, {
             fg: o.fg, height: num(o.height, 40), gap: num(o.gap, 48), bg: o.bg ?? "#ffffff", strength: num(o.strength, 0.5),
             maxWidth: num(o["max-width"], Infinity), sizing: o.sizing ?? "visual", centering: o.centering ?? "visual",
-            target: o.target ?? "fit", metric: o.metric ?? "contrast", grow: o.grow, scale: num(o.scale, 1),
+            target: o.target ?? "fit", metric: o.metric ?? "contrast", grow: o.grow, scale: num(o.scale, 2),
         });
         s.rows.forEach((r) => warn(r.file, r.warnings));
         writeFileSync(o.out, s.png);
@@ -224,7 +242,7 @@ try {
         }
         const ok = s.verify.spread <= GATES.sizeSpreadPct;
         if (o.json) {
-            console.log(JSON.stringify(plain({ out: o.out, scale: s.scale, spread: s.verify.spread, pass: ok, reason: s.verify.reason, logos: s.rows.map((r) => ({ file: r.file, css: r.css, perceived: r.perceived, correction: r.correction, widthLimited: r.widthLimited })) }), null, 2));
+            console.log(JSON.stringify(plain({ out: o.out, scale: s.scale, spread: s.verify.spread, pass: ok, equalized: s.equalized, reason: s.verify.reason, logos: s.rows.map((r) => ({ file: r.file, css: r.css, perceived: r.perceived, correction: r.correction, widthLimited: r.widthLimited })) }), null, 2));
         } else {
             console.log(`wrote ${o.out} (${s.width}x${s.height}px at ${s.scale}x)${o.export ? `, and one trimmed PNG per logo in ${o.export}` : ""}`);
             console.log("file".padEnd(20) + "file css (w x h)".padStart(18) + "ink css (w x h)".padStart(18) + "translate (x, y)".padStart(20) + "perceived".padStart(11));
@@ -233,11 +251,13 @@ try {
             console.log("file css: the height to set on an <img> of the whole file. translate: the move of that box from flex centering to the visual center.");
             if (s.rows.some((r) => r.widthLimited)) console.log("w: --max-width set this logo's size, not the row height");
             console.log(`size spread      ${s.verify.spread.toFixed(2)}% measured on the flattened strip at ${s.scale}x  ${verdict(s.verify.spread, GATES.sizeSpreadPct)}`);
-            if (!ok) console.log(s.scale === 1
-                ? "At 1x, whole-pixel rounding is about 4% of a 24px logo. Render with --scale 2 to check what a 2x screen shows."
-                : "Rounding to whole device pixels limits small raster logos. Use SVG or larger PNG sources, or check at the scale your users see.");
+            if (!s.equalized) console.log("The gate is on perceived size. This row uses --sizing height or a non-default --strength or --metric, so it is not equalized to that size.");
+            else if (!ok) {
+                if (s.scale < 2) console.log("At 1x, whole-pixel rounding is about 4% of a 24px logo. Render with --scale 2 to check what a 2x screen shows.");
+                else if (s.rows.some((r) => r.format !== "svg")) console.log("Rounding to whole device pixels limits small raster logos. Use SVG or larger PNG sources, or check at the scale your users see.");
+                console.log(s.verify.reason);
+            }
         }
-        if (!ok && !o.json) console.log(s.verify.reason);
         process.exitCode = ok ? 0 : 1;
     } else if (command === "tile") {
         if (!o.out) fail("tile needs --out <file.png>");
@@ -261,14 +281,16 @@ try {
         writeFileSync(o.out, f.png);
         if (o.json) console.log(JSON.stringify(plain({ out: o.out, crop: f.crop, clamped: f.clamped, result: f.result, pass: offCenter(f.result).pct <= GATES.offCenterPct }), null, 2));
         else {
-        console.log(formatMeasure(f.source, `source photo (${o.centering ?? "visual"} framing)`));
+        console.log(formatMeasure(f.source, `source photo (${o.centering ?? "visual"} framing)`, { note: "(the source, before the crop; the framed block below is the gate)" }));
         console.log(`crop             ${f.crop.side}x${f.crop.side} at ${f.crop.left},${f.crop.top}${f.clamped ? "  (clamped at the image edge)" : ""}`);
-        console.log("\n" + formatMeasure(f.result, `framed ${o.out}`));
+        console.log("\n" + formatMeasure(f.result, `framed ${o.out}: its off center line is the gate`, { verdict: true, css: false }));
+        if (f.clamped && offCenter(f.result).pct > GATES.offCenterPct) console.log("                 The crop is clamped at the image edge, so it cannot move further. Lower --zoom to give it room.");
         }
         process.exitCode = offCenter(f.result).pct <= GATES.offCenterPct ? 0 : 1;
     } else {
         usage();
     }
 } catch (error) {
+    if (error.code === "NO_INK") warn(error.file, error.warnings);
     fail(error.message.replace(/^Input file is missing/, "file not found"), 1);
 }

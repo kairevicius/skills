@@ -201,7 +201,8 @@ export function evidenceHref(evidence, doc) {
 // candidate-controlled string safe to display. Replace them with a visible
 // `\u{XXXX}` escape before any other formatting, in both renderers: a report
 // this hides from is a report a viewer can't check.
-const HIDDEN_CHAR_RE = /[\u200B-\u200F\u202A-\u202E\u2060-\u2069\uFEFF]|[\u{E0000}-\u{E007F}]/gu;
+// Keep this set equal to HIDDEN_RANGES in verify-proof.mjs.
+const HIDDEN_CHAR_RE = /[\u00AD\u034F\u061C\u115F\u1160\u3164\uFFA0\u180B-\u180F\u200B-\u200F\u202A-\u202E\u2060-\u2064\u2066-\u2069\uFE00-\uFE0E\uFEFF\u{1D173}-\u{1D17A}\u{E0000}-\u{E007F}\u{E0100}-\u{E01EF}]|(?<![\p{Extended_Pictographic}0-9#*])\uFE0F/gu;
 
 function escapeHidden(str) {
   return String(str).replace(
@@ -216,11 +217,19 @@ function escapeHtml(str) {
   ));
 }
 
-// Plain-prose markdown insertion: neutralizes hidden characters only. Full
-// HTML-entity escaping would make the .md ugly to read as text, and markdown
-// itself carries no script risk the way rendered HTML does.
+// Plain-prose markdown insertion. The text is the candidate's, so it must stay one inline
+// run of plain text: a line break could start a heading, a table or a forged section, and
+// "<" could open raw HTML, a comment that swallows the report, or a remote image. Line
+// breaks fold to a space, and the characters that open markup are escaped. Underscores
+// stay unless they could open emphasis, so paths and identifiers read as written.
 function mdText(str) {
-  return escapeHidden(str);
+  const flat = escapeHidden(str).replace(/[\r\n\u0085\u2028\u2029\t\v\f]+/g, " ");
+  const escaped = flat
+    .replace(/[\\`*[\]]/g, "\\$&")
+    .replace(/</g, "&lt;")
+    .replace(/(?<![A-Za-z0-9])_|_(?![A-Za-z0-9])/g, "\\_");
+  // A field can start a line; keep it from opening a heading, a quote, a list or a rule.
+  return escaped.replace(/^(\s*)([#>+\-=~])/, "$1\\$2").replace(/^(\s*\d+)([.)])(?=\s|$)/, "$1\\$2");
 }
 
 // The only other markdown table hazard worth guarding: an unescaped "|"

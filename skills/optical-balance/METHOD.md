@@ -80,6 +80,8 @@ correction       target perceived size ÷ baseline perceived size  (default)
 3. It scales each element by the correction. Without `--grow`, a correction above 1 stays at 1, and the output marks that row as clamped.
 
 The default uses perceived size directly, including unequal width-limited baseline heights.
+`strip` renders these sizes, then corrects each render toward the same rule, at the `--strength` and `--metric` given.
+The size gate always reads perceived size. A row at another power or metric is not equalized to it, and `strip` says so.
 The historical power 0.5 has an exact meaning at equal baseline heights. When all elements start at one ink height, the correction makes their perceived sizes equal. Perceived size gives the mass and the extent equal weight, as the visual center does. A power of 1 makes the ink areas equal, and that goes too far, because it ignores the extent.
 
 ## Offsets and the clamp
