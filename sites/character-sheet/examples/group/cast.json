@@ -1,0 +1,60 @@
+{
+  "id": "group",
+  "name": "Niamh",
+  "role": "",
+  "wardrobe": "emerald green short-sleeved wrap midi dress with a V-neck, falling below the knee; plain white low-top canvas sneakers",
+  "sheet": [
+    {
+      "src": "cast/group-head-front.webp",
+      "label": "Front"
+    },
+    {
+      "src": "cast/group-head-34-left.webp",
+      "label": "3/4 left"
+    },
+    {
+      "src": "cast/group-head-34-right.webp",
+      "label": "3/4 right"
+    },
+    {
+      "src": "cast/group-head-profile-left.webp",
+      "label": "Profile left"
+    },
+    {
+      "src": "cast/group-head-profile-right.webp",
+      "label": "Profile right"
+    },
+    {
+      "src": "cast/group-head-above.webp",
+      "label": "Slightly from above"
+    },
+    {
+      "src": "cast/group-body-front.webp",
+      "label": "Body front"
+    },
+    {
+      "src": "cast/group-body-side.webp",
+      "label": "Body side"
+    },
+    {
+      "src": "cast/group-body-back.webp",
+      "label": "Body back"
+    },
+    {
+      "src": "cast/group-detail-eyes.webp",
+      "label": "Eyes"
+    },
+    {
+      "src": "cast/group-detail-skin.webp",
+      "label": "Skin and mouth"
+    },
+    {
+      "src": "cast/group-detail-hands.webp",
+      "label": "Hands"
+    },
+    {
+      "src": "cast/group-detail-neckline.webp",
+      "label": "Neckline"
+    }
+  ]
+}

@@ -1,0 +1,5 @@
+interface:
+  display_name: "Character sheet"
+  short_description: "Turn photos of a real person into 13 matching studio views"
+policy:
+  allow_implicit_invocation: false
