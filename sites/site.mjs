@@ -11,6 +11,7 @@ export function navigation(page, prefix) {
         ['write-up', 'Write-up', 'optical-balance/write-up.html'],
         ['demo', 'Demo', 'optical-balance/demo.html'],
         ['proof', 'Proof', 'proof/'],
+        ['character-sheet', 'Character sheet', 'character-sheet/'],
     ];
     return `<nav class="site-nav" aria-label="Site">${links.map(([id, text, path]) => `<a href="${prefix}${path}"${id === page ? ' aria-current="page"' : ''}>${text}</a>`).join('')}</nav>`;
 }

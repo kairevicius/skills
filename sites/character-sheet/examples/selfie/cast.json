@@ -1,0 +1,60 @@
+{
+  "id": "selfie",
+  "name": "Mei",
+  "role": "",
+  "wardrobe": "light blue denim button-up shirt; beige straight cotton trousers; white leather low-top sneakers",
+  "sheet": [
+    {
+      "src": "cast/selfie-head-front.webp",
+      "label": "Front"
+    },
+    {
+      "src": "cast/selfie-head-34-left.webp",
+      "label": "3/4 left"
+    },
+    {
+      "src": "cast/selfie-head-34-right.webp",
+      "label": "3/4 right"
+    },
+    {
+      "src": "cast/selfie-head-profile-left.webp",
+      "label": "Profile left"
+    },
+    {
+      "src": "cast/selfie-head-profile-right.webp",
+      "label": "Profile right"
+    },
+    {
+      "src": "cast/selfie-head-above.webp",
+      "label": "Slightly from above"
+    },
+    {
+      "src": "cast/selfie-body-front.webp",
+      "label": "Body front"
+    },
+    {
+      "src": "cast/selfie-body-side.webp",
+      "label": "Body side"
+    },
+    {
+      "src": "cast/selfie-body-back.webp",
+      "label": "Body back"
+    },
+    {
+      "src": "cast/selfie-detail-eyes.webp",
+      "label": "Eyes"
+    },
+    {
+      "src": "cast/selfie-detail-skin.webp",
+      "label": "Skin and mouth"
+    },
+    {
+      "src": "cast/selfie-detail-hands.webp",
+      "label": "Hands"
+    },
+    {
+      "src": "cast/selfie-detail-neckline.webp",
+      "label": "Neckline"
+    }
+  ]
+}

@@ -8,7 +8,7 @@ const root = resolve(new URL('../_site/', import.meta.url).pathname);
 const evidence = new URL('../docs/evidence/site-redesign/', import.meta.url);
 const axeSource = process.env.SITE_AXE_PATH ? readFileSync(process.env.SITE_AXE_PATH, 'utf8') : null;
 const capture = process.argv.includes('--screenshots');
-const types = { '.html': 'text/html', '.svg': 'image/svg+xml', '.png': 'image/png', '.webp': 'image/webp', '.json': 'application/json' };
+const types = { '.html': 'text/html', '.svg': 'image/svg+xml', '.png': 'image/png', '.webp': 'image/webp', '.jpg': 'image/jpeg', '.json': 'application/json' };
 const server = createServer((req, res) => {
     let pathname = decodeURIComponent(new URL(req.url, 'http://localhost').pathname);
     if (!pathname.startsWith('/skills/')) { res.writeHead(404); res.end(); return; }
@@ -38,6 +38,7 @@ try {
             ['write-up', 'optical-balance/write-up.html', 'The box is not the ink'],
             ['demo', 'optical-balance/demo.html', 'Optical align'],
             ['proof', 'proof/', 'Proof · Claims a reader can check'],
+            ['character-sheet', 'character-sheet/', 'Character sheet · One person, thirteen views'],
         ]) {
             const response = await page.goto(base + path, { waitUntil: 'networkidle' });
             assert.equal(response.status(), 200);

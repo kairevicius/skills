@@ -8,6 +8,7 @@ Agent skills that turn design decisions and git history into results you can che
 
 - **Optical balance** estimates the visual center and perceived size of logos and icons, gives you a CSS offset, and checks the rendered result. Its heuristic does not prove human preference.
 - **Proof** turns one person's git history into evidence-backed claims and reports. A recipient can re-derive a received proof from the public repository.
+- **Character sheet** turns photos of a real person into 13 studio views with the same face, clothes and light. It is user-invoked and makes paid Gemini image calls.
 
 They work with any agent that reads skills, including Claude Code, Codex, Cursor, OpenCode, and Gemini CLI.
 
@@ -63,6 +64,7 @@ Extraction starts the workflow. Follow the skill to write claims, validate, rend
 
 - [optical-balance](./skills/optical-balance/SKILL.md) — measurement workflow, commands, and limits. [Site](https://kairevicius.github.io/skills/optical-balance/).
 - [proof](./skills/proof/SKILL.md) — generation, validation, signing, and independent verification. [Site](https://kairevicius.github.io/skills/proof/).
+- [character-sheet](./skills/character-sheet/SKILL.md) — views, review checklist, and film cast export. [Site](https://kairevicius.github.io/skills/character-sheet/).
 
 ## Develop
 
