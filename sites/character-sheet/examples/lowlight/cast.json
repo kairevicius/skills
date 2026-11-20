@@ -1,0 +1,60 @@
+{
+  "id": "lowlight",
+  "name": "Grace",
+  "role": "",
+  "wardrobe": "mustard-yellow chunky knit cardigan, open over a plain white scoop-neck top; dark blue straight jeans; brown leather ankle boots",
+  "sheet": [
+    {
+      "src": "cast/lowlight-head-front.webp",
+      "label": "Front"
+    },
+    {
+      "src": "cast/lowlight-head-34-left.webp",
+      "label": "3/4 left"
+    },
+    {
+      "src": "cast/lowlight-head-34-right.webp",
+      "label": "3/4 right"
+    },
+    {
+      "src": "cast/lowlight-head-profile-left.webp",
+      "label": "Profile left"
+    },
+    {
+      "src": "cast/lowlight-head-profile-right.webp",
+      "label": "Profile right"
+    },
+    {
+      "src": "cast/lowlight-head-above.webp",
+      "label": "Slightly from above"
+    },
+    {
+      "src": "cast/lowlight-body-front.webp",
+      "label": "Body front"
+    },
+    {
+      "src": "cast/lowlight-body-side.webp",
+      "label": "Body side"
+    },
+    {
+      "src": "cast/lowlight-body-back.webp",
+      "label": "Body back"
+    },
+    {
+      "src": "cast/lowlight-detail-eyes.webp",
+      "label": "Eyes"
+    },
+    {
+      "src": "cast/lowlight-detail-skin.webp",
+      "label": "Skin and mouth"
+    },
+    {
+      "src": "cast/lowlight-detail-hands.webp",
+      "label": "Hands"
+    },
+    {
+      "src": "cast/lowlight-detail-neckline.webp",
+      "label": "Neckline"
+    }
+  ]
+}

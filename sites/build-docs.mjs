@@ -19,6 +19,7 @@ const home = sitePage(document('Skills · Measure and verify', 'Agent skills for
 <ul class="skill-list">
 <li><a href="optical-balance/"><strong>Optical balance <span aria-hidden="true">↗</span></strong><span>Center and size logos and icons by what the eye sees. Get the CSS offset and check the rendered result.</span></a></li>
 <li><a href="proof/"><strong>Proof <span aria-hidden="true">↗</span></strong><span>Turn one person's git history into claims backed by commits and files. Re-derive a received proof before trusting it.</span></a></li>
+<li><a href="character-sheet/"><strong>Character sheet <span aria-hidden="true">↗</span></strong><span>Turn photos of a real person into 13 studio views with the same face, clothes and light, ready for a film's cast.</span></a></li>
 </ul>
 <h2 id="install">Install</h2>
 <p>Use the skills CLI. It asks which skills and agents to install for.</p>
@@ -65,12 +66,36 @@ node "$SKILL_ROOT/scripts/verify-proof.mjs" --help</code></pre>
 <footer><p>MIT · <a href="https://github.com/kairevicius/skills/blob/main/LICENSE">License</a> · <a href="https://github.com/kairevicius/skills">GitHub</a></p></footer>
 `), 'proof');
 
+const characterSheet = sitePage(document('Character sheet · One person, thirteen views', 'Turn photos of a real person into 13 matching studio views for a film cast.', `
+<h1>Character sheet <span class="subtitle">· an agent skill</span></h1>
+<p>Turn photos of a real person into <em>13 studio views of the same face</em>.</p>
+<p class="meta"><span>User-invoked</span><a href="#install">Install ↓</a><a href="https://github.com/kairevicius/skills/tree/main/skills/character-sheet">Skill source ↗</a></p>
+<h2>What it does</h2>
+<p>From one or more photos, the agent describes the person, then generates six head views, three full-body views and four close details. Each view is a separate image with the same clothes, backdrop and light.</p>
+<p>The front is made and picked first. It then anchors every other view, so a hard photo cannot pull the views toward different faces.</p>
+<h2>Hard photos</h2>
+<p>Nine invented people, each from one hard photo: a dark bar, sunglasses, a close selfie, black-and-white film, a group, a far-away street shot, a backlit hijab, tattoos and a video call.</p>
+<p><a href="examples/all-9-sheets.jpg"><img src="examples/all-9-sheets.jpg" alt="Nine character sheets, each with the source photo and 13 generated studio views" width="2848" height="2479" style="width:100%;height:auto"></a></p>
+<h2 id="install">Install</h2>
+<pre><code>${installCommand('one-skill', 'character-sheet')}</code></pre>
+<p>The skill needs <code>uv</code> and a Gemini API key in <code>GOOGLE_GENERATIVE_AI_API_KEY</code>. Every view is a paid image call; the script does a dry run first.</p>
+<p>Start it by typing its name in your agent. Follow <a href="https://github.com/kairevicius/skills/blob/main/skills/character-sheet/SKILL.md">SKILL.md</a>.</p>
+<h2>Limits</h2>
+<p>Use it only with the photos of a person who agreed. Personal photos and generated faces stay outside any repository.</p>
+<p>Some faces keep a profile at 70 to 80 degrees; a real side photo fixes it.</p>
+<footer><p>MIT · <a href="https://github.com/kairevicius/skills/blob/main/LICENSE">License</a> · <a href="https://github.com/kairevicius/skills">GitHub</a></p></footer>
+`), 'character-sheet');
+
 mkdirSync(new URL('./proof/dist/', import.meta.url), { recursive: true });
 writeFileSync(new URL('./index.html', import.meta.url), home);
 writeFileSync(new URL('./proof/dist/index.html', import.meta.url), proof);
+mkdirSync(new URL('./character-sheet/dist/', import.meta.url), { recursive: true });
+writeFileSync(new URL('./character-sheet/dist/index.html', import.meta.url), characterSheet);
 mkdirSync(new URL('../_site/', import.meta.url), { recursive: true });
 writeFileSync(new URL('../_site/index.html', import.meta.url), home);
 cpSync(new URL('./optical-balance/dist/', import.meta.url), new URL('../_site/optical-balance/', import.meta.url), { recursive: true });
 cpSync(new URL('./proof/dist/', import.meta.url), new URL('../_site/proof/', import.meta.url), { recursive: true });
+cpSync(new URL('./character-sheet/dist/', import.meta.url), new URL('../_site/character-sheet/', import.meta.url), { recursive: true });
+cpSync(new URL('./character-sheet/examples/', import.meta.url), new URL('../_site/character-sheet/examples/', import.meta.url), { recursive: true });
 cpSync(new URL('./well/', import.meta.url), new URL('../_site/well/', import.meta.url), { recursive: true });
-console.log('Site assembly PASS: home, optical-balance, write-up, demo, proof');
+console.log('Site assembly PASS: home, optical-balance, write-up, demo, proof, character-sheet');

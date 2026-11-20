@@ -1,0 +1,60 @@
+{
+  "id": "sunglasses",
+  "name": "Raj",
+  "role": "",
+  "wardrobe": "plain faded coral-red cotton T-shirt, no print; beige cotton chino shorts; brown leather sandals",
+  "sheet": [
+    {
+      "src": "cast/sunglasses-head-front.webp",
+      "label": "Front"
+    },
+    {
+      "src": "cast/sunglasses-head-34-left.webp",
+      "label": "3/4 left"
+    },
+    {
+      "src": "cast/sunglasses-head-34-right.webp",
+      "label": "3/4 right"
+    },
+    {
+      "src": "cast/sunglasses-head-profile-left.webp",
+      "label": "Profile left"
+    },
+    {
+      "src": "cast/sunglasses-head-profile-right.webp",
+      "label": "Profile right"
+    },
+    {
+      "src": "cast/sunglasses-head-above.webp",
+      "label": "Slightly from above"
+    },
+    {
+      "src": "cast/sunglasses-body-front.webp",
+      "label": "Body front"
+    },
+    {
+      "src": "cast/sunglasses-body-side.webp",
+      "label": "Body side"
+    },
+    {
+      "src": "cast/sunglasses-body-back.webp",
+      "label": "Body back"
+    },
+    {
+      "src": "cast/sunglasses-detail-eyes.webp",
+      "label": "Eyes"
+    },
+    {
+      "src": "cast/sunglasses-detail-skin.webp",
+      "label": "Beard and skin"
+    },
+    {
+      "src": "cast/sunglasses-detail-hands.webp",
+      "label": "Hands"
+    },
+    {
+      "src": "cast/sunglasses-detail-neckline.webp",
+      "label": "Neckline"
+    }
+  ]
+}
